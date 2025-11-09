@@ -46,7 +46,7 @@ public class ClientPlayerMove : NetworkBehaviour
 
     private void LateUpdate()
     {
-        if(IsOwner) 
+        if(!IsOwner) 
             return;
 
        UpdateInputServerRpc(m_StarterAssetsInputs.move, m_StarterAssetsInputs.look, m_StarterAssetsInputs.jump, m_StarterAssetsInputs.sprint);
