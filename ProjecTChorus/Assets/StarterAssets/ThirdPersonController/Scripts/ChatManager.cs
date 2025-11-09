@@ -3,7 +3,7 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 using System.Collections;
-using UnityEngine.InputSystem; // <-- IMPORTANTE: Adicione isso
+using UnityEngine.InputSystem; // <-- Importante
 
 public class ChatManager : NetworkBehaviour
 {
@@ -18,7 +18,9 @@ public class ChatManager : NetworkBehaviour
     public float fadeDuration = 0.5f;
 
     private Coroutine fadeCoroutine;
-    private StarterAssetsInputs localPlayerInputs; // Referência ao nosso jogador
+    private StarterAssetsInputs localPlayerInputs;
+
+    // --- (Removemos a flag 'justExitedChat', ela não é mais necessária) ---
 
     void Start()
     {
@@ -28,10 +30,9 @@ public class ChatManager : NetworkBehaviour
         }
         if (chatInputField != null)
         {
-            // OUVINTES DE EVENTOS (A CORREÇÃO PRINCIPAL)
             chatInputField.onSubmit.AddListener(OnSubmitChat);
             chatInputField.onSelect.AddListener(OnSelectChat);
-            chatInputField.onDeselect.AddListener(OnDeselectChat);
+            // 'onDeselect' continua comentado para corrigir o bug da scrollbar
         }
     }
 
@@ -42,63 +43,60 @@ public class ChatManager : NetworkBehaviour
             NetworkManager.Singleton.OnClientConnectedCallback += HandleClientConnected;
             NetworkManager.Singleton.OnClientDisconnectCallback += HandleClientDisconnected;
         }
-
-        // Inicia o chat invisível
         if (chatCanvasGroup != null)
         {
             chatCanvasGroup.alpha = 0f;
         }
     }
 
-    // --- (O resto do OnNetworkDespawn, Handlers, RPCs não muda) ---
-    // ... (copie e cole os seus métodos HandleClientConnected, HandleClientDisconnected, SubmitChatMessageServerRpc, BroadcastMessageClientRpc aqui) ...
-
+    // --- (RPCs e Handlers de Conexão - Sem Mudanças) ---
     public override void OnNetworkDespawn() { if (IsServer) { NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected; NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected; } }
     private void HandleClientConnected(ulong clientId) { BroadcastMessageClientRpc($"[SISTEMA]: Jogador {clientId} entrou na sala."); }
     private void HandleClientDisconnected(ulong clientId) { BroadcastMessageClientRpc($"[SISTEMA]: Jogador {clientId} saiu da sala."); }
-    [ServerRpc(RequireOwnership = false)] private void SubmitChatMessageServerRpc(string message, ServerRpcParams rpcParams = default) { ulong senderId = rpcParams.Receive.SenderClientId; string formattedMessage = $"[Jogador {senderId}]: {message}"; BroadcastMessageClientRpc(formattedMessage); }
+    [ServerRpc(RequireOwnership = false)] private void SubmitChatMessageServerRpc(string message, ServerRpcParams rParams = default) { ulong senderId = rParams.Receive.SenderClientId; string fMessage = $"[Jogador {senderId}]: {message}"; BroadcastMessageClientRpc(fMessage); }
     [ClientRpc] private void BroadcastMessageClientRpc(string message) { if (chatLogText != null) { chatLogText.text += message + "\n"; } }
 
-    // --- LÓGICA DE CONTROLE CENTRALIZADA ---
+    // --- LÓGICA DE CONTROLE CENTRALIZADA (MODIFICADA) ---
 
     private void Update()
     {
-        // Se o jogador não for encontrado, tenta encontrá-lo
+        // Encontra o jogador local (sem mudanças aqui)
         if (localPlayerInputs == null && NetworkManager.Singleton.LocalClient != null && NetworkManager.Singleton.LocalClient.PlayerObject != null)
         {
             localPlayerInputs = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<StarterAssetsInputs>();
         }
 
-        // Se o jogador local existir...
-        if (localPlayerInputs != null)
+        if (localPlayerInputs == null) return; // Se não achou o jogador, não faz nada
+
+        // --- (INÍCIO DA MUDANÇA) ---
+        // Lógica para ABRIR o chat (tecla Enter)
+        if (Keyboard.current != null && Keyboard.current.enterKey.wasPressedThisFrame)
         {
-            // O 'Update' agora detecta "Enter" para ABRIR o chat
-            if (Keyboard.current != null && Keyboard.current.enterKey.wasPressedThisFrame)
+            // Se o chat NÃO está focado E o jogador NÃO está no modo chat...
+            if (chatInputField != null && !chatInputField.isFocused && !localPlayerInputs.isChatting)
             {
-                // Só abre se não estiver no chat
-                if (!localPlayerInputs.isChatting)
-                {
-                    EnterChatMode();
-                }
+                // ...então o "Enter" foi para ABRIR o chat.
+                EnterChatMode();
             }
         }
+
+        // Lógica para FECHAR o chat (tecla Escape)
+        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+        {
+            // Se o jogador ESTÁ no modo chat...
+            if (localPlayerInputs.isChatting)
+            {
+                // ...então "Escape" fecha o chat.
+                ExitChatMode();
+            }
+        }
+        // --- (FIM DA MUDANÇA) ---
     }
 
     // Chamado quando o usuário CLICA no InputField
     private void OnSelectChat(string text)
     {
         EnterChatMode();
-    }
-
-    // Chamado quando o usuário CLICA FORA do InputField
-    private void OnDeselectChat(string text)
-    {
-        // Só sai do modo chat se não estivermos enviando uma mensagem
-        // (o 'onSubmit' cuida disso)
-        if (localPlayerInputs != null && localPlayerInputs.isChatting)
-        {
-            ExitChatMode();
-        }
     }
 
     // Chamado quando o usuário pressiona ENTER dentro do InputField
@@ -111,7 +109,6 @@ public class ChatManager : NetworkBehaviour
     public void OnSend()
     {
         if (chatInputField == null) return;
-
         string message = chatInputField.text.Trim();
 
         if (!string.IsNullOrWhiteSpace(message))
@@ -124,7 +121,6 @@ public class ChatManager : NetworkBehaviour
         ExitChatMode();
     }
 
-    // Função única para ENTRAR no modo chat
     private void EnterChatMode()
     {
         if (localPlayerInputs == null) return;
@@ -145,7 +141,6 @@ public class ChatManager : NetworkBehaviour
         }
     }
 
-    // Função única para SAIR do modo chat
     private void ExitChatMode()
     {
         if (localPlayerInputs == null) return;
@@ -156,13 +151,19 @@ public class ChatManager : NetworkBehaviour
         Cursor.visible = false;
 
         if (chatInputField != null)
+        {
+            // --- (INÍCIO DA MUDANÇA) ---
+            // Força o InputField a "desselecionar"
             chatInputField.DeactivateInputField();
+            // Para garantir, diz ao EventSystem para não focar em nada
+            UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
+            // --- (FIM DA MUDANÇA) ---
+        }
 
         ResetInactivityTimer(); // Inicia o fade-out
     }
 
-    // --- (Nenhuma mudança na lógica de FADE) ---
-
+    // --- (Lógica de Fade - Sem Mudanças) ---
     private void ResetInactivityTimer()
     {
         if (fadeCoroutine != null) StopCoroutine(fadeCoroutine);
@@ -172,13 +173,10 @@ public class ChatManager : NetworkBehaviour
     private IEnumerator InactivityFadeOut()
     {
         yield return new WaitForSeconds(inactivityTimeout);
-
-        // Se o usuário re-selecionou o chat, não faz o fade
         if (chatInputField != null && chatInputField.isFocused)
         {
             yield break;
         }
-
         StartChatFade(0.0f);
     }
 
@@ -192,7 +190,6 @@ public class ChatManager : NetworkBehaviour
     {
         float time = 0;
         float startAlpha = (chatCanvasGroup != null) ? chatCanvasGroup.alpha : 0;
-
         while (time < fadeDuration)
         {
             if (chatCanvasGroup == null) yield break;
@@ -200,7 +197,6 @@ public class ChatManager : NetworkBehaviour
             time += Time.deltaTime;
             yield return null;
         }
-
         if (chatCanvasGroup != null)
             chatCanvasGroup.alpha = targetAlpha;
     }
