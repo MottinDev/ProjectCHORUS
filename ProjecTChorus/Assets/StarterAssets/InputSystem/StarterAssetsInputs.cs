@@ -24,14 +24,7 @@ public class StarterAssetsInputs : NetworkBehaviour
     public bool cursorLocked = true;
     public bool cursorInputForLook = true;
 
-    // O OnNetworkSpawn agora SÓ verifica a propriedade (IsOwner)
-    public override void OnNetworkSpawn()
-    {
-        if (!IsOwner)
-        {
-            enabled = false;
-        }
-    }
+ 
 
     // O Update AGORA SÓ SERVE PARA O INPUT DE TECLADO
     // Removemos a detecção do "Enter" daqui para matar a "race condition".
