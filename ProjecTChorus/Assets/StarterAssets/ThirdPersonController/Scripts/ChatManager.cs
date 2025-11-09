@@ -3,7 +3,7 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 using System.Collections;
-using UnityEngine.InputSystem; // <-- Importante
+using UnityEngine.InputSystem; 
 
 public class ChatManager : NetworkBehaviour
 {
@@ -20,7 +20,7 @@ public class ChatManager : NetworkBehaviour
     private Coroutine fadeCoroutine;
     private StarterAssetsInputs localPlayerInputs;
 
-    // --- (Removemos a flag 'justExitedChat', ela não é mais necessária) ---
+   
 
     void Start()
     {
@@ -49,18 +49,58 @@ public class ChatManager : NetworkBehaviour
         }
     }
 
-    // --- (RPCs e Handlers de Conexão - Sem Mudanças) ---
+    // --- RPCs e Handlers de Conexão  ---
     public override void OnNetworkDespawn() { if (IsServer) { NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected; NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected; } }
     private void HandleClientConnected(ulong clientId) { BroadcastMessageClientRpc($"[SISTEMA]: Jogador {clientId} entrou na sala."); }
     private void HandleClientDisconnected(ulong clientId) { BroadcastMessageClientRpc($"[SISTEMA]: Jogador {clientId} saiu da sala."); }
-    [ServerRpc(RequireOwnership = false)] private void SubmitChatMessageServerRpc(string message, ServerRpcParams rParams = default) { ulong senderId = rParams.Receive.SenderClientId; string fMessage = $"[Jogador {senderId}]: {message}"; BroadcastMessageClientRpc(fMessage); }
-    [ClientRpc] private void BroadcastMessageClientRpc(string message) { if (chatLogText != null) { chatLogText.text += message + "\n"; } }
 
-    // --- LÓGICA DE CONTROLE CENTRALIZADA (MODIFICADA) ---
+    [ServerRpc(RequireOwnership = false)]
+    private void SubmitChatMessageServerRpc(string message, ServerRpcParams rParams = default)
+    {
+        ulong senderId = rParams.Receive.SenderClientId;
+        string fMessage = $"[Jogador {senderId}]: {message}";
 
+        // Chamamos o ClientRpc sem parâmetros, o que significa "Broadcast para todos"
+        BroadcastMessageClientRpc(fMessage, default);
+    }
+
+    [ClientRpc]
+    private void BroadcastMessageClientRpc(string message, ClientRpcParams clientRpcParams = default)
+    {
+        // Apenas chamamos a função local
+        AddMessageToLog(message);
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    private void SubmitPrivateMessageServerRpc(ulong targetClientId, string message, ServerRpcParams rParams = default)
+    {
+        ulong senderId = rParams.Receive.SenderClientId;
+        string fMessage = $"[PRIVADO de {senderId}]: {message}";
+
+        // 1. Cria a lista de clientes que devem receber a mensagem
+        ulong[] targetClientIds = new ulong[] {
+            senderId,       // O remetente (para ele ver a própria msg)
+            targetClientId  // O destinatário
+        };
+
+        // 2. Configura os parâmetros de envio
+        ClientRpcParams clientRpcParams = new ClientRpcParams
+        {
+            Send = new ClientRpcSendParams
+            {
+                TargetClientIds = targetClientIds
+            }
+        };
+
+        // 3. Chama o MESMO ClientRpc, mas desta vez com os parâmetros
+        // O Netcode vai filtrar e enviar SÓ para os alvos.
+        BroadcastMessageClientRpc(fMessage, clientRpcParams);
+    }
+
+    // --- LÓGICA DE CONTROLE CENTRALIZADA ---
     private void Update()
     {
-        // Encontra o jogador local (sem mudanças aqui)
+        // Encontra o jogador local 
         if (localPlayerInputs == null && NetworkManager.Singleton.LocalClient != null && NetworkManager.Singleton.LocalClient.PlayerObject != null)
         {
             localPlayerInputs = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<StarterAssetsInputs>();
@@ -68,7 +108,7 @@ public class ChatManager : NetworkBehaviour
 
         if (localPlayerInputs == null) return; // Se não achou o jogador, não faz nada
 
-        // --- (INÍCIO DA MUDANÇA) ---
+        
         // Lógica para ABRIR o chat (tecla Enter)
         if (Keyboard.current != null && Keyboard.current.enterKey.wasPressedThisFrame)
         {
@@ -90,7 +130,7 @@ public class ChatManager : NetworkBehaviour
                 ExitChatMode();
             }
         }
-        // --- (FIM DA MUDANÇA) ---
+       
     }
 
     // Chamado quando o usuário CLICA no InputField
@@ -111,16 +151,66 @@ public class ChatManager : NetworkBehaviour
         if (chatInputField == null) return;
         string message = chatInputField.text.Trim();
 
-        if (!string.IsNullOrWhiteSpace(message))
+        if (string.IsNullOrWhiteSpace(message))
         {
-            SubmitChatMessageServerRpc(message);
-            chatInputField.text = "";
+            // Se a mensagem está vazia, apenas saia do modo chat
+            ExitChatMode();
+            return;
         }
 
-        // SEMPRE sai do modo chat após enviar
+        // --- LÓGICA DE PARSING ---
+        if (message.StartsWith("/msg "))
+        {
+            // Dividimos a mensagem: "/msg" "1" "Olá" "tudo" "bem"
+            string[] parts = message.Split(' ');
+
+            // Verificação de erro: /msg <id> <mensagem>
+            if (parts.Length < 3)
+            {
+                AddMessageToLog("[SISTEMA]: Formato incorreto. Use: /msg <ID_do_Jogador> <mensagem>");
+            }
+            // Tenta converter a segunda parte (parts[1]) em um ID
+            else if (ulong.TryParse(parts[1], out ulong targetClientId))
+            {
+                // Remonta a mensagem (parts[2] em diante)
+                string privateMessage = string.Join(" ", parts, 2, parts.Length - 2);
+
+                // Chama o novo RPC Privado
+                SubmitPrivateMessageServerRpc(targetClientId, privateMessage);
+            }
+            else
+            {
+                AddMessageToLog($"[SISTEMA]: ID '{parts[1]}' inválido. Deve ser um número.");
+            }
+        }
+        else
+        {
+            // Não é um comando, chama o RPC de broadcast normal
+            SubmitChatMessageServerRpc(message);
+        }
+        // --- FIM DA LÓGICA ---
+
+        chatInputField.text = "";
         ExitChatMode();
     }
+    /// <summary>
+    /// Adiciona uma mensagem ao log local da UI e reseta o timer do fade.
+    /// Esta função é chamada localmente por todos os ClientRpcs.
+    /// </summary>
+    private void AddMessageToLog(string message)
+    {
+        if (chatLogText != null)
+        {
+            chatLogText.text += message + "\n";
+        }
 
+        // Se estivermos no modo chat, não iniciamos o fade-out
+        if (localPlayerInputs == null || !localPlayerInputs.isChatting)
+        {
+            StartChatFade(1.0f); // Mostra o chat
+            ResetInactivityTimer(); // Inicia o timer para apagar
+        }
+    }
     private void EnterChatMode()
     {
         if (localPlayerInputs == null) return;
@@ -152,18 +242,18 @@ public class ChatManager : NetworkBehaviour
 
         if (chatInputField != null)
         {
-            // --- (INÍCIO DA MUDANÇA) ---
+            
             // Força o InputField a "desselecionar"
             chatInputField.DeactivateInputField();
             // Para garantir, diz ao EventSystem para não focar em nada
             UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
-            // --- (FIM DA MUDANÇA) ---
+            
         }
 
         ResetInactivityTimer(); // Inicia o fade-out
     }
 
-    // --- (Lógica de Fade - Sem Mudanças) ---
+    // --- Lógica de Fade  ---
     private void ResetInactivityTimer()
     {
         if (fadeCoroutine != null) StopCoroutine(fadeCoroutine);
