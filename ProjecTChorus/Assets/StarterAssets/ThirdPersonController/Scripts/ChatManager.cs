@@ -20,7 +20,10 @@ public class ChatManager : NetworkBehaviour
     private Coroutine fadeCoroutine;
     private StarterAssetsInputs localPlayerInputs;
 
-   
+    // O Relógio Lógico do Servidor (Começa em 0)
+    private int serverLogicalClock = 0;
+
+
 
     void Start()
     {
@@ -51,8 +54,16 @@ public class ChatManager : NetworkBehaviour
 
     // --- RPCs e Handlers de Conexão  ---
     public override void OnNetworkDespawn() { if (IsServer) { NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected; NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected; } }
-    private void HandleClientConnected(ulong clientId) { BroadcastMessageClientRpc($"[SISTEMA]: Jogador {clientId} entrou na sala."); }
-    private void HandleClientDisconnected(ulong clientId) { BroadcastMessageClientRpc($"[SISTEMA]: Jogador {clientId} saiu da sala."); }
+    private void HandleClientConnected(ulong clientId)
+    {
+        serverLogicalClock++; // Relógio avança
+        BroadcastMessageClientRpc($"[SISTEMA]: Jogador {clientId} entrou na sala.", serverLogicalClock, default);
+    }
+    private void HandleClientDisconnected(ulong clientId)
+    {
+        serverLogicalClock++; // Relógio avança
+        BroadcastMessageClientRpc($"[SISTEMA]: Jogador {clientId} saiu da sala.", serverLogicalClock, default);
+    }
 
     [ServerRpc(RequireOwnership = false)]
     private void SubmitChatMessageServerRpc(string message, ServerRpcParams rParams = default)
@@ -60,15 +71,15 @@ public class ChatManager : NetworkBehaviour
         ulong senderId = rParams.Receive.SenderClientId;
         string fMessage = $"[Jogador {senderId}]: {message}";
 
-        // Chamamos o ClientRpc sem parâmetros, o que significa "Broadcast para todos"
-        BroadcastMessageClientRpc(fMessage, default);
+        serverLogicalClock++; // Relógio avança
+        BroadcastMessageClientRpc(fMessage, serverLogicalClock, default);
     }
 
     [ClientRpc]
-    private void BroadcastMessageClientRpc(string message, ClientRpcParams clientRpcParams = default)
+    private void BroadcastMessageClientRpc(string message, int timestamp, ClientRpcParams clientRpcParams = default)
     {
-        // Apenas chamamos a função local
-        AddMessageToLog(message);
+        // Agora o ClientRpc repassa o timestamp
+        AddMessageToLog(message, timestamp);
     }
 
     [ServerRpc(RequireOwnership = false)]
@@ -77,13 +88,13 @@ public class ChatManager : NetworkBehaviour
         ulong senderId = rParams.Receive.SenderClientId;
         string fMessage = $"[PRIVADO de {senderId}]: {message}";
 
-        // 1. Cria a lista de clientes que devem receber a mensagem
+        // 1. Cria a lista de clientes (sem mudança aqui)
         ulong[] targetClientIds = new ulong[] {
-            senderId,       // O remetente (para ele ver a própria msg)
+            senderId,       // O remetente
             targetClientId  // O destinatário
         };
 
-        // 2. Configura os parâmetros de envio
+        // 2. Configura os parâmetros de envio (sem mudança aqui)
         ClientRpcParams clientRpcParams = new ClientRpcParams
         {
             Send = new ClientRpcSendParams
@@ -92,9 +103,13 @@ public class ChatManager : NetworkBehaviour
             }
         };
 
-        // 3. Chama o MESMO ClientRpc, mas desta vez com os parâmetros
-        // O Netcode vai filtrar e enviar SÓ para os alvos.
-        BroadcastMessageClientRpc(fMessage, clientRpcParams);
+        // 3. Incrementa o relógio lógico do servidor
+        serverLogicalClock++;
+
+        // 4. Chama o ClientRpc com a MENSAGEM, o CARIMBO e os PARÂMETROS de roteamento
+        BroadcastMessageClientRpc(fMessage, serverLogicalClock, clientRpcParams);
+
+        
     }
 
     // --- LÓGICA DE CONTROLE CENTRALIZADA ---
@@ -158,7 +173,7 @@ public class ChatManager : NetworkBehaviour
             return;
         }
 
-        // --- LÓGICA DE PARSING ---
+        
         if (message.StartsWith("/msg "))
         {
             // Dividimos a mensagem: "/msg" "1" "Olá" "tudo" "bem"
@@ -167,7 +182,8 @@ public class ChatManager : NetworkBehaviour
             // Verificação de erro: /msg <id> <mensagem>
             if (parts.Length < 3)
             {
-                AddMessageToLog("[SISTEMA]: Formato incorreto. Use: /msg <ID_do_Jogador> <mensagem>");
+                // MUDANÇA: Usando a nova função local
+                AddLocalSystemMessage("[SISTEMA]: Formato incorreto. Use: /msg <ID_do_Jogador> <mensagem>");
             }
             // Tenta converter a segunda parte (parts[1]) em um ID
             else if (ulong.TryParse(parts[1], out ulong targetClientId))
@@ -175,42 +191,62 @@ public class ChatManager : NetworkBehaviour
                 // Remonta a mensagem (parts[2] em diante)
                 string privateMessage = string.Join(" ", parts, 2, parts.Length - 2);
 
-                // Chama o novo RPC Privado
+                // Chama o RPC Privado (sem mudança aqui)
                 SubmitPrivateMessageServerRpc(targetClientId, privateMessage);
             }
             else
             {
-                AddMessageToLog($"[SISTEMA]: ID '{parts[1]}' inválido. Deve ser um número.");
+                // MUDANÇA: Usando a nova função local
+                AddLocalSystemMessage($"[SISTEMA]: ID '{parts[1]}' inválido. Deve ser um número.");
             }
         }
         else
         {
-            // Não é um comando, chama o RPC de broadcast normal
+            // Não é um comando, chama o RPC de broadcast normal (sem mudança aqui)
             SubmitChatMessageServerRpc(message);
         }
-        // --- FIM DA LÓGICA ---
+        
 
         chatInputField.text = "";
         ExitChatMode();
     }
     /// <summary>
-    /// Adiciona uma mensagem ao log local da UI e reseta o timer do fade.
-    /// Esta função é chamada localmente por todos os ClientRpcs.
+    /// Adiciona uma mensagem de REDE (com timestamp) ao log.
     /// </summary>
-    private void AddMessageToLog(string message)
+    private void AddMessageToLog(string message, int timestamp)
     {
         if (chatLogText != null)
         {
-            chatLogText.text += message + "\n";
+            // formatamos a mensagem com o carimbo de Lamport
+            string formattedMessage = $"[T:{timestamp}] {message}\n";
+            chatLogText.text += formattedMessage;
         }
 
-        // Se estivermos no modo chat, não iniciamos o fade-out
         if (localPlayerInputs == null || !localPlayerInputs.isChatting)
         {
             StartChatFade(1.0f); // Mostra o chat
             ResetInactivityTimer(); // Inicia o timer para apagar
         }
     }
+
+    /// <summary>
+    /// Adiciona uma mensagem de SISTEMA (local) ao log.
+    /// Usado para erros de formatação, etc.
+    /// </summary>
+    private void AddLocalSystemMessage(string message)
+    {
+        if (chatLogText != null)
+        {
+            chatLogText.text += message + "\n";
+        }
+
+        if (localPlayerInputs == null || !localPlayerInputs.isChatting)
+        {
+            StartChatFade(1.0f); // Mostra o chat
+            ResetInactivityTimer(); // Inicia o timer para apagar
+        }
+    }
+
     private void EnterChatMode()
     {
         if (localPlayerInputs == null) return;
