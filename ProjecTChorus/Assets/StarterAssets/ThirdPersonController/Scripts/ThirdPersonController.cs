@@ -165,6 +165,13 @@ namespace StarterAssets
             // Move() SÓ deve rodar no servidor
             if (IsServer)
             {
+               
+                // O servidor precisa calcular os ângulos da câmera
+                // (baseado no _input.look que o cliente enviou)
+                // para que o Move() funcione corretamente.
+                CalculateCameraRotation();
+               
+
                 Move();
             }
         }
@@ -203,21 +210,10 @@ namespace StarterAssets
 
         private void CameraRotation()
         {
-            // if there is an input and camera position is not fixed
-            if (_input.look.sqrMagnitude >= _threshold && !LockCameraPosition)
-            {
-                //Don't multiply mouse input by Time.deltaTime;
-                float deltaTimeMultiplier = IsCurrentDeviceMouse ? 1.0f : Time.deltaTime;
+            // 1. Calcula os ângulos
+            CalculateCameraRotation();
 
-                _cinemachineTargetYaw += _input.look.x * deltaTimeMultiplier;
-                _cinemachineTargetPitch += _input.look.y * deltaTimeMultiplier;
-            }
-
-            // clamp our rotations so our values are limited 360 degrees
-            _cinemachineTargetYaw = ClampAngle(_cinemachineTargetYaw, float.MinValue, float.MaxValue);
-            _cinemachineTargetPitch = ClampAngle(_cinemachineTargetPitch, BottomClamp, TopClamp);
-
-            // Cinemachine will follow this target
+            // 2. Aplica na câmera virtual (que só o Owner faz)
             CinemachineCameraTarget.transform.rotation = Quaternion.Euler(_cinemachineTargetPitch + CameraAngleOverride,
                 _cinemachineTargetYaw, 0.0f);
         }
@@ -267,7 +263,7 @@ namespace StarterAssets
             if (_input.move != Vector2.zero)
             {
                 _targetRotation = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg +
-                                  _mainCamera.transform.eulerAngles.y;
+                               _cinemachineTargetYaw;
                 float rotation = Mathf.SmoothDampAngle(transform.eulerAngles.y, _targetRotation, ref _rotationVelocity,
                     RotationSmoothTime);
 
@@ -357,6 +353,28 @@ namespace StarterAssets
             {
                 _verticalVelocity += Gravity * Time.deltaTime;
             }
+        }
+
+        /// <summary>
+        /// Apenas calcula os ângulos da câmera com base no input.
+        /// Esta lógica agora é usada tanto pelo Owner (para mover a VCam)
+        /// quanto pelo Server (para calcular a direção do movimento).
+        /// </summary>
+        private void CalculateCameraRotation()
+        {
+            // if there is an input and camera position is not fixed
+            if (_input.look.sqrMagnitude >= _threshold && !LockCameraPosition)
+            {
+                //Don't multiply mouse input by Time.deltaTime;
+                float deltaTimeMultiplier = IsCurrentDeviceMouse ? 1.0f : Time.deltaTime;
+
+                _cinemachineTargetYaw += _input.look.x * deltaTimeMultiplier;
+                _cinemachineTargetPitch += _input.look.y * deltaTimeMultiplier;
+            }
+
+            // clamp our rotations so our values are limited 360 degrees
+            _cinemachineTargetYaw = ClampAngle(_cinemachineTargetYaw, float.MinValue, float.MaxValue);
+            _cinemachineTargetPitch = ClampAngle(_cinemachineTargetPitch, BottomClamp, TopClamp);
         }
 
         private static float ClampAngle(float lfAngle, float lfMin, float lfMax)
