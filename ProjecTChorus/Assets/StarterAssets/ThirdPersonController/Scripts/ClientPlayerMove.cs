@@ -78,12 +78,16 @@ public class ClientPlayerMove : NetworkBehaviour
 
     // 4. RPC e LateUpdate 
     [Rpc(SendTo.Server)]
-    private void UpdateInputServerRpc(Vector2 move, Vector2 look, bool jump, bool sprint)
+    private void UpdateInputServerRpc(Vector2 move, bool jump, bool sprint, float cameraYaw)
     {
+        // 1. Aplica os inputs de movimento
         m_StarterAssetsInputs.MoveInput(move);
-        m_StarterAssetsInputs.LookInput(look);
         m_StarterAssetsInputs.JumpInput(jump);
         m_StarterAssetsInputs.SprintInput(sprint);
+
+        // 2. Removemos o LookInput(look)
+        // 3. Esta é a nova "Fonte da Verdade" para o movimento do servidor.
+        m_ThirdPersonController._cinemachineTargetYaw = cameraYaw;
     }
 
 
@@ -92,7 +96,17 @@ public class ClientPlayerMove : NetworkBehaviour
         if (!IsOwner)
             return;
 
-        // Envia os inputs para o servidor
-        UpdateInputServerRpc(m_StarterAssetsInputs.move, m_StarterAssetsInputs.look, m_StarterAssetsInputs.jump, m_StarterAssetsInputs.sprint);
+        // O TPC.LateUpdate (que roda no Owner) acabou de rodar
+        // e calculou o ângulo final da câmera.
+        // Nós o lemos.
+        float currentCameraYaw = m_ThirdPersonController._cinemachineTargetYaw;
+
+        // Envia os inputs de movimento E o ângulo final da câmera
+        UpdateInputServerRpc(
+            m_StarterAssetsInputs.move,
+            m_StarterAssetsInputs.jump,
+            m_StarterAssetsInputs.sprint,
+            currentCameraYaw
+        );
     }
 }

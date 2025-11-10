@@ -77,7 +77,7 @@ namespace StarterAssets
         public bool LockCameraPosition = false;
 
         // cinemachine
-        private float _cinemachineTargetYaw;
+        public float _cinemachineTargetYaw;
         private float _cinemachineTargetPitch;
 
         // player
@@ -165,12 +165,6 @@ namespace StarterAssets
             // Move() SÓ deve rodar no servidor
             if (IsServer)
             {
-               
-                // O servidor precisa calcular os ângulos da câmera
-                // (baseado no _input.look que o cliente enviou)
-                // para que o Move() funcione corretamente.
-                CalculateCameraRotation();
-               
 
                 Move();
             }
