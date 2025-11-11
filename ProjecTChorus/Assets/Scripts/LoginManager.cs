@@ -28,6 +28,8 @@ public class LoginManager : AuthBase
         {
             await base.GetInitializationTask();
 
+            AuthenticationService.Instance.SignedIn += OnSignInSuccess;
+
             // NOVO: Se inscreve nos eventos do Player Accounts (Google, etc.)
             PlayerAccountService.Instance.SignedIn += HandlePlayerAccountSignedIn;
             PlayerAccountService.Instance.SignInFailed += HandlePlayerAccountSignInFailed;
@@ -76,7 +78,7 @@ public class LoginManager : AuthBase
     private void OnSignInSuccess()
     {
         Debug.Log($"Login com sucesso! PlayerID: {AuthenticationService.Instance.PlayerId}");
-        SceneManager.LoadScene(gameSceneName);
+        SceneManager.LoadScene("Playground");
     }
 
     public async void OnLoginPressed()
@@ -136,10 +138,16 @@ public class LoginManager : AuthBase
     // NOVO: Limpa os eventos quando o objeto for destruído
     private void OnDestroy()
     {
+        if (AuthenticationService.Instance != null)
+        {
+            AuthenticationService.Instance.SignedIn -= OnSignInSuccess;
+        }
+
         if (PlayerAccountService.Instance != null)
         {
             PlayerAccountService.Instance.SignedIn -= HandlePlayerAccountSignedIn;
             PlayerAccountService.Instance.SignInFailed -= HandlePlayerAccountSignInFailed;
         }
     }
+
 }
