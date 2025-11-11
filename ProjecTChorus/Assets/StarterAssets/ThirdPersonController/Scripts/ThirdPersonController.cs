@@ -156,16 +156,12 @@ namespace StarterAssets
 
         private void Update()
         {
-            if (IsOwner || IsServer)
+            // O Cliente (Owner) NÃO deve rodar física.
+            // APENAS o Servidor deve calcular toda a física e movimento.
+            if (IsServer)
             {
                 GroundedCheck();
                 JumpAndGravity();
-            }
-
-            // Move() SÓ deve rodar no servidor
-            if (IsServer)
-            {
-
                 Move();
             }
         }

@@ -1,11 +1,10 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.Threading; // <-- ADICIONADO: Para o CancellationToken
+using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
-using Unity.Networking.Transport.Relay;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Lobbies;
@@ -32,6 +31,7 @@ public class LobbyManager : MonoBehaviour
     [Header("Create Lobby UI")]
     [SerializeField] private TMP_InputField lobbyNameInput;
     [SerializeField] private Toggle isPrivateToggle;
+    [SerializeField] private Toggle isDedicatedServerToggle;
 
     [Header("Lobby List UI")]
     [SerializeField] private GameObject lobbyItemPrefab;
@@ -86,6 +86,14 @@ public class LobbyManager : MonoBehaviour
         {
             Debug.LogError($"Erro ao inicializar ou autenticar: {e}");
         }
+
+        desbloquearCursor();
+    }
+
+    public void desbloquearCursor()
+    {
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
     }
 
     public void showCreateLobby()
@@ -142,11 +150,13 @@ public class LobbyManager : MonoBehaviour
 
             foreach (Lobby lobby in response.Results)
             {
+                Lobby lobbyAtual = lobby;
+
                 GameObject lobbyItem = Instantiate(lobbyItemPrefab, lobbyListContent);
-                lobbyItem.GetComponentInChildren<TextMeshProUGUI>().text = lobby.Name;
+                lobbyItem.GetComponentInChildren<TextMeshProUGUI>().text = lobbyAtual.Name;
                 lobbyItem.GetComponent<Button>().onClick.AddListener(() =>
                 {
-                    OnJoinLobby(lobby);
+                    OnJoinLobby(lobbyAtual);
                 });
             }
         }
@@ -167,7 +177,7 @@ public class LobbyManager : MonoBehaviour
             CreateLobbyOptions options = new CreateLobbyOptions
             {
                 IsPrivate = isPrivate,
-                Player = GetPlayer()
+                Player = isDedicatedServerToggle.isOn ? null : GetPlayer()
             };
             joinedLobby = await LobbyService.Instance.CreateLobbyAsync(lobbyName, maxPlayers, options);
 
@@ -184,9 +194,18 @@ public class LobbyManager : MonoBehaviour
                 }
             });
 
+            await Task.Delay(300);
+
             UnityTransport utp = NetworkManager.Singleton.GetComponent<UnityTransport>();
             utp.SetRelayServerData(AllocationUtils.ToRelayServerData(allocation, connectionType));
-            NetworkManager.Singleton.StartHost();
+            if (isDedicatedServerToggle.isOn)
+            {
+                NetworkManager.Singleton.StartServer();
+            }
+            else
+            {
+                NetworkManager.Singleton.StartHost();
+            }
 
             panelCreateLobby.SetActive(false);
             panelJoinedLobby.SetActive(true);
@@ -196,6 +215,8 @@ public class LobbyManager : MonoBehaviour
             StartHeartbeat(15f);
 
             UpdateJoinedLobbyUI(joinedLobby);
+
+            desbloquearCursor();
         }
         catch (LobbyServiceException e)
         {
@@ -247,6 +268,9 @@ public class LobbyManager : MonoBehaviour
             StartHeartbeat(15f);
 
             UpdateJoinedLobbyUI(joinedLobby);
+
+            desbloquearCursor();
+
         }
         catch (LobbyServiceException e)
         {
@@ -262,7 +286,6 @@ public class LobbyManager : MonoBehaviour
         }
     }
 
-    // --- NOVO: FUNÇÃO PARA ATUALIZAR A UI DO LOBBY EM QUE ENTRAMOS ---
     private void UpdateJoinedLobbyUI(Lobby lobby)
     {
         if (lobby == null || playerListContainer == null) return;
@@ -315,9 +338,6 @@ public class LobbyManager : MonoBehaviour
         }
     }
 
-    // --- CORREÇÃO CS0161 e CS4032 ---
-    // Esta é a substituição da Coroutine.
-    // É um 'async void' pois é um loop "fire-and-forget".
     private async void LobbyHeartbeatLoop(float waitTimeSeconds, CancellationToken token)
     {
         // O loop para se o token for cancelado (pelo StopHeartbeat) 
