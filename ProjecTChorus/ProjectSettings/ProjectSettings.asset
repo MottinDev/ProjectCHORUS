@@ -925,11 +925,11 @@ PlayerSettings:
   captureStartupLogs: {}
   activeInputHandler: 1
   windowsGamepadBackendHint: 0
-  cloudProjectId: 320e4974-aa70-444a-a6f8-0c06915e0ab1
+  cloudProjectId: 503a64c7-f1b3-463a-93d3-16d058ea2f4c
   framebufferDepthMemorylessMode: 0
   qualitySettingsNames: []
-  projectName: ProjecTChorus (1)
-  organizationId: codeslayerjotor
+  projectName: ProjecTChorus
+  organizationId: mottinn
   cloudEnabled: 0
   legacyClampBlendShapeWeights: 0
   hmiLoadingImage: {fileID: 0}

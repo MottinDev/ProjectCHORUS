@@ -13,6 +13,7 @@ public class StarterAssetsInputs : NetworkBehaviour
     public Vector2 look;
     public bool jump;
     public bool sprint;
+    public bool interact;
 
     [Header("Chat Mode")]
     public bool isChatting = false; // O ChatManager vai controlar isso
@@ -60,6 +61,10 @@ public class StarterAssetsInputs : NetworkBehaviour
     public void OnSprint(InputValue value)
     {
         SprintInput(value.isPressed);
+    }
+    public void OnInteract(InputValue value)
+    {
+        InteractInput(value.isPressed);
     }
 #endif
 
@@ -112,6 +117,14 @@ public class StarterAssetsInputs : NetworkBehaviour
         {
             SetCursorState(cursorLocked);
         }
+    }
+    public void InteractInput(bool newInteractState)
+    {
+        // Se estiver no chat, não faça nada
+        if (isChatting) return;
+
+        // Os scripts de interação (Jukebox/Porta) vão consumir isso
+        interact = newInteractState;
     }
 
     public void SetCursorState(bool newState)
