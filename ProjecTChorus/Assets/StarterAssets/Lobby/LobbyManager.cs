@@ -294,7 +294,17 @@ public class LobbyManager : MonoBehaviour
 
         foreach (Transform child in playerListContainer.transform)
         {
-            Destroy(child.gameObject);
+            if (Application.isPlaying)
+            {
+                // Se sim, usa o Destroy normal.
+                Destroy(child.gameObject);
+            }
+            else
+            {
+                // Se não (o async atrasou), usa o DestroyImmediate
+                // para obedecer o Unity Editor.
+                DestroyImmediate(child.gameObject);
+            }
         }
 
         foreach (Player player in lobby.Players)

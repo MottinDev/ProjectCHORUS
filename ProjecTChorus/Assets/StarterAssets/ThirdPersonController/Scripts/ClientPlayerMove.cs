@@ -146,12 +146,13 @@ public class ClientPlayerMove : NetworkBehaviour
 
     // --- RPC e LateUpdate (Sem mudanças, já estavam corretos) ---
     [Rpc(SendTo.Server)]
-    private void UpdateInputServerRpc(Vector2 move, Vector2 look, bool jump, bool sprint, float cameraYaw)
+    private void UpdateInputServerRpc(Vector2 move, bool jump, bool sprint, float cameraYaw)
     {
         m_StarterAssetsInputs.MoveInput(move);
-        m_StarterAssetsInputs.LookInput(look);
         m_StarterAssetsInputs.JumpInput(jump);
         m_StarterAssetsInputs.SprintInput(sprint);
+
+        // Esta é a única fonte da verdade para a câmera
         m_ThirdPersonController._cinemachineTargetYaw = cameraYaw;
     }
 
@@ -160,11 +161,12 @@ public class ClientPlayerMove : NetworkBehaviour
         if (!IsOwner) return;
         if (!m_ThirdPersonController.enabled) return;
 
+        // 1. Cliente (Owner) calcula o ângulo final no TPC.LateUpdate()
         float currentCameraYaw = m_ThirdPersonController._cinemachineTargetYaw;
 
+        // 2. Cliente envia os inputs E o ângulo final para o servidor
         UpdateInputServerRpc(
             m_StarterAssetsInputs.move,
-            m_StarterAssetsInputs.look,
             m_StarterAssetsInputs.jump,
             m_StarterAssetsInputs.sprint,
             currentCameraYaw
