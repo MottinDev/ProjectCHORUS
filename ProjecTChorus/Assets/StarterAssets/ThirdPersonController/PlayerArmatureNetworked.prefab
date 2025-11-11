@@ -1452,6 +1452,7 @@ MonoBehaviour:
   m_PlayerInput: {fileID: 7803503315136636005}
   m_StarterAssetsInputs: {fileID: 826579336098918255}
   m_ThirdPersonController: {fileID: 5722666488176919634}
+  m_CharacterController: {fileID: 0}
   m_CameraTarget: {fileID: 8763962588354154714}
 --- !u!1 &4199538590522679892
 GameObject:

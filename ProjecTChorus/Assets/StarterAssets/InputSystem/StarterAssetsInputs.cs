@@ -98,6 +98,16 @@ public class StarterAssetsInputs : NetworkBehaviour
     // --- CONTROLE DO CURSOR ---
     private void OnApplicationFocus(bool hasFocus)
     {
+        // <-- MUDANÇA CRÍTICA -->
+        // Se este componente de script não estiver habilitado,
+        // não faça absolutamente nada.
+        if (!enabled)
+        {
+            return;
+        }
+
+        // Se o script ESTIVER habilitado (ex: no Playground),
+        // a lógica antiga funciona.
         if (!isChatting)
         {
             SetCursorState(cursorLocked);
