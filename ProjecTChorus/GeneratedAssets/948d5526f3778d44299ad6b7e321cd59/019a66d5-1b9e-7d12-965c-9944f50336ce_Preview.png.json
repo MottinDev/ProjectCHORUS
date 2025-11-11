@@ -1,0 +1,11 @@
+{
+    "asset": "948d5526f3778d44299ad6b7e321cd59",
+    "fileName": "019a66d5-1b9e-7d12-965c-9944f50336ce_Preview.png",
+    "prompt": "Generate a dark, semi-transparent 9-slice UI sprite for a chat window, sci-fi style",
+    "negativePrompt": "",
+    "model": "44ec3749-963a-44b1-aa54-dc19f6ed8ab2",
+    "modelName": "Unity Texture2D",
+    "customSeed": 854873616,
+    "w3CTraceId": "822196a788f09328cc71b51d74734410",
+    "refinementMode": "Generation"
+}
