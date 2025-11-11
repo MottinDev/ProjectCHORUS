@@ -8,6 +8,12 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/Scenes/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
+  - enabled: 0
+    path: Assets/Lobby/Scene.unity
+    guid: 01893fc077b412446959bf2b9ca80cd0
+  - enabled: 1
+    path: Assets/StarterAssets/Lobby/Lobby.unity
+    guid: 5b0bc884c04247148bcf3bada07b31a7
   - enabled: 1
     path: Assets/StarterAssets/ThirdPersonController/Scenes/Playground.unity
     guid: e9017d5f96b9f09489b4b37e1d6eb914

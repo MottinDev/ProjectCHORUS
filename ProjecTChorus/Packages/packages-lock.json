@@ -301,8 +301,8 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.services.authentication": {
-      "version": "3.5.1",
-      "depth": 1,
+      "version": "3.5.2",
+      "depth": 0,
       "source": "registry",
       "dependencies": {
         "com.unity.ugui": "1.0.0",
@@ -313,8 +313,8 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.services.core": {
-      "version": "1.15.1",
-      "depth": 1,
+      "version": "1.15.2",
+      "depth": 0,
       "source": "registry",
       "dependencies": {
         "com.unity.modules.androidjni": "1.0.0",

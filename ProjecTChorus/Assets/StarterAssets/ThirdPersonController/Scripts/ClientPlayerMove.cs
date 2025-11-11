@@ -1,8 +1,11 @@
 using Unity.Netcode;
 using UnityEngine;
-using StarterAssets; 
+using StarterAssets;
 using UnityEngine.InputSystem;
-using Cinemachine; 
+using Cinemachine;
+using Unity.Collections; // Necessï¿½rio para OnSceneLoaded
+using System.Collections.Generic; // Necessï¿½rio para OnSceneLoaded
+using UnityEngine.SceneManagement; // Necessï¿½rio para LoadSceneMode
 
 public class ClientPlayerMove : NetworkBehaviour
 {
@@ -11,24 +14,22 @@ public class ClientPlayerMove : NetworkBehaviour
     [SerializeField] private StarterAssetsInputs m_StarterAssetsInputs;
     [SerializeField] private ThirdPersonController m_ThirdPersonController;
 
-    //  Variáveis de câmera 
     [Header("Camera Target")]
-    [Tooltip("O objeto 'PlayerCameraRoot' que está dentro deste prefab.")]
+    [Tooltip("O objeto 'PlayerCameraRoot' que estï¿½ dentro deste prefab.")]
     [SerializeField] private Transform m_CameraTarget;
 
-    // Variável para guardar a VCam da cena (para performance)
     private CinemachineVirtualCamera sceneVirtualCamera;
+    private bool sceneLoaded = false;
 
 
     private void Awake()
     {
-        //  tudo começa desabilitado
+        // tudo comeï¿½a desabilitado
         m_StarterAssetsInputs.enabled = false;
         m_PlayerInput.enabled = false;
         m_ThirdPersonController.enabled = false;
     }
 
-   
     public override void OnNetworkSpawn()
     {
         base.OnNetworkSpawn();
@@ -38,72 +39,127 @@ public class ClientPlayerMove : NetworkBehaviour
             // Habilita os scripts de input para o jogador local
             m_StarterAssetsInputs.enabled = true;
             m_PlayerInput.enabled = true;
+            m_ThirdPersonController.enabled = true; // TPC Habilitado para Owner (Cï¿½mera)
 
-            // Habilita o TPC para o Owner (para câmera e lógica de input)
-            m_ThirdPersonController.enabled = true;
+            // --- NOVA Lï¿½GICA DE Cï¿½MERA ---
+            // 1. "Inscreve-se" no evento de carregamento de cena do NetworkManager
+            //    Isso garante que vamos re-verificar a cï¿½mera CADA vez que uma cena carregar.
+            NetworkManager.Singleton.SceneManager.OnLoadEventCompleted += OnSceneLoaded;
 
-            // --- LÓGICA DE CÂMERA ---
-
-            // 1. Encontra a câmera virtual na CENA
-            //    (FindObjectOfType é ok no Spawn, pois só roda uma vez)
-            if (sceneVirtualCamera == null)
-            {
-                sceneVirtualCamera = Object.FindFirstObjectByType<CinemachineVirtualCamera>();
-
-            }
-
-            // 2. Se encontrou a câmera...
-            if (sceneVirtualCamera != null)
-            {
-                // 3. Comanda a câmera da cena para SEGUIR e OLHAR para o nosso alvo
-                sceneVirtualCamera.Follow = m_CameraTarget;
-                sceneVirtualCamera.LookAt = m_CameraTarget;
-
-                Debug.Log($"OnNetworkSpawn: Câmera virtual '{sceneVirtualCamera.name}' foi comandada para seguir {m_CameraTarget.name}.");
-            }
-            else
-            {
-                Debug.LogError("PlayerFollowCamera (CinemachineVirtualCamera) não foi encontrada na cena!");
-            }
-            
+            // 2. Tenta pegar a cï¿½mera imediatamente (caso jï¿½ estejamos na cena certa)
+            AttemptCameraHook();
         }
 
-        // Lógica do Servidor 
-        // O servidor é o único que pode rodar a lógica de movimento.
+        // Lï¿½gica do Servidor
+        // O servidor ï¿½ o ï¿½nico que pode rodar a lï¿½gica de movimento.
         if (IsServer)
         {
             m_ThirdPersonController.enabled = true;
         }
     }
 
-    // 4. RPC e LateUpdate 
+    // --- NOVO Mï¿½TODO ---
+    // Este mï¿½todo ï¿½ chamado pelo evento OnLoadEventCompleted
+    private void OnSceneLoaded(string sceneName, LoadSceneMode mode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
+    {
+        if (!IsOwner) return;
+
+        // Marca que a cena estï¿½ 100% carregada
+        sceneLoaded = true;
+
+        Transform spawn = GameObject.Find("SpawnPoint")?.transform;
+
+        if (spawn != null)
+        {
+            transform.position = spawn.position;
+            transform.rotation = spawn.rotation;
+            Debug.Log("Player posicionado no SpawnPoint.");
+        }
+        else
+        {
+            Debug.LogWarning("SpawnPoint nï¿½o encontrado na cena carregada.");
+        }
+
+
+        // Agora sim ativa o movimento
+        m_StarterAssetsInputs.enabled = true;
+        m_PlayerInput.enabled = true;
+        m_ThirdPersonController.enabled = true;
+
+        AttemptCameraHook(); // agora funciona
+
+        Debug.Log("Cena carregada completamente. Player ativado.");
+    }
+
+
+    // --- NOVO Mï¿½TODO ---
+    // Esta ï¿½ a sua lï¿½gica de cï¿½mera original, agora em um mï¿½todo reutilizï¿½vel
+    private void AttemptCameraHook()
+    {
+        // Tenta encontrar a cï¿½mera na cena ATUAL
+        // Usamos FindFirstObjectByType (novo) em vez de FindObjectOfType (antigo)
+        sceneVirtualCamera = Object.FindFirstObjectByType<CinemachineVirtualCamera>();
+
+        if (sceneVirtualCamera != null)
+        {
+            // Se encontrou, comanda a cï¿½mera
+            sceneVirtualCamera.Follow = m_CameraTarget;
+            sceneVirtualCamera.LookAt = m_CameraTarget;
+            Debug.Log($"AttemptCameraHook: Cï¿½mera virtual '{sceneVirtualCamera.name}' foi comandada para seguir {m_CameraTarget.name}.");
+        }
+        else
+        {
+            // Se nï¿½o encontrou, avisa no console.
+            // Note: Isso Nï¿½O ï¿½ mais um LogError, pois ï¿½
+            // ESPERADO que nï¿½o haja cï¿½mera na Cena de Lobby.
+            Debug.LogWarning("AttemptCameraHook: Nenhuma CinemachineVirtualCamera foi encontrada na cena atual.");
+        }
+    }
+
+    // --- IMPORTANTE: LIMPEZA ---
+    public override void OnNetworkDespawn()
+    {
+        base.OnNetworkDespawn();
+
+        // "Desinscreve-se" do evento para evitar erros
+        if (IsOwner)
+        {
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.SceneManager != null)
+            {
+                NetworkManager.Singleton.SceneManager.OnLoadEventCompleted -= OnSceneLoaded;
+            }
+        }
+    }
+
+
+    // 4. RPC e LateUpdate (Sem alteraï¿½ï¿½es aqui)
     [Rpc(SendTo.Server)]
-    private void UpdateInputServerRpc(Vector2 move, bool jump, bool sprint, float cameraYaw)
+    private void UpdateInputServerRpc(Vector2 move, Vector2 look, bool jump, bool sprint, float cameraYaw)
     {
         // 1. Aplica os inputs de movimento
         m_StarterAssetsInputs.MoveInput(move);
+        m_StarterAssetsInputs.LookInput(look);
         m_StarterAssetsInputs.JumpInput(jump);
         m_StarterAssetsInputs.SprintInput(sprint);
 
         // 2. Removemos o LookInput(look)
-        // 3. Esta é a nova "Fonte da Verdade" para o movimento do servidor.
+        // 3. Esta ï¿½ a nova "Fonte da Verdade" para o movimento do servidor.
         m_ThirdPersonController._cinemachineTargetYaw = cameraYaw;
     }
 
-
     private void LateUpdate()
     {
-        if (!IsOwner)
-            return;
+        if (!IsOwner) return;
 
         // O TPC.LateUpdate (que roda no Owner) acabou de rodar
-        // e calculou o ângulo final da câmera.
-        // Nós o lemos.
+        // e calculou o ï¿½ngulo final da cï¿½mera.
+        // Nï¿½s o lemos.
         float currentCameraYaw = m_ThirdPersonController._cinemachineTargetYaw;
 
-        // Envia os inputs de movimento E o ângulo final da câmera
+        // Envia os inputs de movimento E o ï¿½ngulo final da cï¿½mera
         UpdateInputServerRpc(
             m_StarterAssetsInputs.move,
+            m_StarterAssetsInputs.look,
             m_StarterAssetsInputs.jump,
             m_StarterAssetsInputs.sprint,
             currentCameraYaw
