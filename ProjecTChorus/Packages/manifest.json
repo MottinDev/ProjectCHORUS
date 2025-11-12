@@ -28,6 +28,7 @@
     "com.unity.rendering.light-transport": "1.0.1",
     "com.unity.searcher": "4.9.3",
     "com.unity.services.authentication": "3.5.2",
+    "com.unity.services.cloudsave": "3.2.2",
     "com.unity.services.core": "1.15.2",
     "com.unity.services.multiplayer": "1.2.0",
     "com.unity.services.vivox": "16.7.0",

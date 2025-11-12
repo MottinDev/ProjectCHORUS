@@ -89,7 +89,11 @@ public class ClientPlayerMove : NetworkBehaviour
                 if (m_CharacterController != null)
                 {
                     m_CharacterController.enabled = true;
-                    Debug.Log($"[Server] Fï¿½sica (CharacterController) HABILITADA para {name}");
+                    Debug.Log($"[Client/Server] Física (CharacterController) HABILITADA para {name}");
+                }
+                else
+                {
+                    Debug.LogWarning($"CharacterController está nulo em {name}!");
                 }
             }
         }

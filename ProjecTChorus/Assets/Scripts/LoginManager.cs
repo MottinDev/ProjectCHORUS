@@ -78,7 +78,7 @@ public class LoginManager : AuthBase
     private void OnSignInSuccess()
     {
         Debug.Log($"Login com sucesso! PlayerID: {AuthenticationService.Instance.PlayerId}");
-        SceneManager.LoadScene("Playground");
+        SceneManager.LoadScene("Lobby");
     }
 
     public async void OnLoginPressed()

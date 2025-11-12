@@ -1,7 +1,7 @@
 using UnityEngine;
 using Unity.Netcode;
 
-public class ButtonTrigger : NetworkBehaviour
+public class ButtonTrigger : MonoBehaviour
 {
     // Defina no Inspetor: "A" para um, "B" para o outro
     [SerializeField] private string buttonID;
