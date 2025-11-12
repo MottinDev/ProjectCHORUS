@@ -1197,7 +1197,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2362853327
+  GlobalObjectIdHash: 1092322270
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1273,6 +1273,7 @@ MonoBehaviour:
   look: {x: 0, y: 0}
   jump: 0
   sprint: 0
+  interact: 0
   isChatting: 0
   analogMovement: 0
   cursorLocked: 1
@@ -1452,7 +1453,7 @@ MonoBehaviour:
   m_PlayerInput: {fileID: 7803503315136636005}
   m_StarterAssetsInputs: {fileID: 826579336098918255}
   m_ThirdPersonController: {fileID: 5722666488176919634}
-  m_CharacterController: {fileID: 0}
+  m_CharacterController: {fileID: 3360231785046211936}
   m_CameraTarget: {fileID: 8763962588354154714}
 --- !u!1 &4199538590522679892
 GameObject:

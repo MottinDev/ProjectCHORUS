@@ -17,7 +17,7 @@ public class DoorManager : NetworkBehaviour
     private float buttonTimeout = 10.0f; // 2 segundos para apertarem
     private float buttonATimer = 0f;
     private float buttonBTimer = 0f;
-
+    public bool IsOpen => isDoorOpen.Value;
     public override void OnNetworkSpawn()
     {
         // Cliente: Escuta a mudança de estado da porta

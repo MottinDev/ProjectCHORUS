@@ -418,6 +418,8 @@ GameObject:
   - component: {fileID: 473457881}
   - component: {fileID: 473457880}
   - component: {fileID: 473457879}
+  - component: {fileID: 473457884}
+  - component: {fileID: 473457885}
   m_Layer: 0
   m_Name: ButtonTwo
   m_TagString: Untagged
@@ -527,12 +529,64 @@ Transform:
   m_GameObject: {fileID: 473457878}
   serializedVersion: 2
   m_LocalRotation: {x: -0.6956581, y: 0.12672752, z: 0.12672748, w: 0.6956581}
-  m_LocalPosition: {x: 7.1906595, y: 0.31554997, z: 11.993939}
+  m_LocalPosition: {x: 5.94, y: 0.316, z: 8.67}
   m_LocalScale: {x: 0.14599833, y: 0.03853836, z: 0.16806453}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1980079345}
   m_LocalEulerAnglesHint: {x: -90, y: 0, z: 20.649}
+--- !u!54 &473457884
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 473457878}
+  serializedVersion: 5
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 1
+  m_IsKinematic: 1
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0
+--- !u!114 &473457885
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 473457878}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 1695431845
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
 --- !u!1 &542508511
 GameObject:
   m_ObjectHideFlags: 0
@@ -1781,6 +1835,8 @@ GameObject:
   - component: {fileID: 973142252}
   - component: {fileID: 973142251}
   - component: {fileID: 973142250}
+  - component: {fileID: 973142255}
+  - component: {fileID: 973142256}
   m_Layer: 0
   m_Name: ButtonOne
   m_TagString: Untagged
@@ -1890,12 +1946,64 @@ Transform:
   m_GameObject: {fileID: 973142249}
   serializedVersion: 2
   m_LocalRotation: {x: -0.6956581, y: 0.12672752, z: 0.12672748, w: 0.6956581}
-  m_LocalPosition: {x: 11.96066, y: 0.31554997, z: 10.299939}
+  m_LocalPosition: {x: 10.965, y: 0.316, z: 7.658}
   m_LocalScale: {x: 0.14599833, y: 0.03853836, z: 0.16806453}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1980079345}
   m_LocalEulerAnglesHint: {x: -90, y: 0, z: 20.649}
+--- !u!54 &973142255
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 973142249}
+  serializedVersion: 5
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 1
+  m_IsKinematic: 1
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0
+--- !u!114 &973142256
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 973142249}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 3600613378
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
 --- !u!1 &1008475511
 GameObject:
   m_ObjectHideFlags: 0
@@ -2301,7 +2409,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 665119354}
   m_Direction: 0
   m_Value: 1
-  m_Size: 0.99999994
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:

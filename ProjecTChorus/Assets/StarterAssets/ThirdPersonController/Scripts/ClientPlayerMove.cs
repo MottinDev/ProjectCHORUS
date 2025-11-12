@@ -33,7 +33,7 @@ public class ClientPlayerMove : NetworkBehaviour
         m_CharacterController.enabled = false;
     }
 
-    // --- Mï¿½TODO ATUALIZADO ---
+    
     public override void OnNetworkSpawn()
     {
         base.OnNetworkSpawn();
@@ -45,14 +45,14 @@ public class ClientPlayerMove : NetworkBehaviour
         HandleSceneChange(SceneManager.GetActiveScene().name);
     }
 
-    // --- Mï¿½TODO ATUALIZADO ---
+    
     // Agora este mï¿½todo ï¿½ chamado por TODOS (servidor e clientes)
     private void OnSceneLoaded(string sceneName, LoadSceneMode mode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
     {
         HandleSceneChange(sceneName);
     }
 
-    // --- Mï¿½TODO ATUALIZADO ---
+
     public override void OnNetworkDespawn()
     {
         base.OnNetworkDespawn();
@@ -64,12 +64,16 @@ public class ClientPlayerMove : NetworkBehaviour
     }
 
 
-    // --- Lï¿½gica de Habilitaï¿½ï¿½o (Jï¿½ estava correta) ---
+
+    /// <summary>
+    /// Gerencia quais componentes estão ativos com base na cena atual.
+    /// Chamado por OnNetworkSpawn e OnLoadEventCompleted.
+    /// </summary>
     private void HandleSceneChange(string sceneName)
     {
         if (sceneName == "Playground")
         {
-            // 1. Inputs: Sï¿½ o Dono (Owner)
+            // 1. Inputs: Habilitado APENAS para o Dono (Owner)
             if (IsOwner)
             {
                 m_StarterAssetsInputs.enabled = true;
@@ -79,23 +83,26 @@ public class ClientPlayerMove : NetworkBehaviour
                 Debug.Log($"[Owner] Controles de input HABILITADOS para {name}");
             }
 
-            // 2. ThirdPersonController (Lï¿½gica de Cï¿½mera/Movimento): Dono E Servidor
-            // (O script interno dele jï¿½ tem checagens de IsOwner/IsServer)
+            // 2. ThirdPersonController (Lógica de Câmera/Movimento): Habilitado para Dono E Servidor
+            // (O script interno dele já tem as checagens 'if (IsOwner)' e 'if (IsServer)')
             m_ThirdPersonController.enabled = true;
 
-            // 3. CharacterController (Fï¿½sica): Sï¿½ o Servidor
-            if (IsServer)
+            // 3. CharacterController (Física): Habilitado para TODOS
+    
+            // O componente precisa estar habilitado em TODOS os jogadores
+            // para que os triggers (como botões) funcionem no cliente.
+            // A lógica de movimento (autoritativa) já é controlada
+            // dentro do ThirdPersonController (com 'if (IsServer)').
+            if (m_CharacterController != null)
             {
-                if (m_CharacterController != null)
-                {
-                    m_CharacterController.enabled = true;
-                    Debug.Log($"[Client/Server] Física (CharacterController) HABILITADA para {name}");
-                }
-                else
-                {
-                    Debug.LogWarning($"CharacterController está nulo em {name}!");
-                }
+                m_CharacterController.enabled = true;
+                Debug.Log($"[Client/Server] Física (CharacterController) HABILITADA para {name}");
             }
+            else
+            {
+                Debug.LogWarning($"CharacterController está nulo em {name}!");
+            }
+        
         }
         else // Se for a cena "Lobby" ou qualquer outra
         {
@@ -103,12 +110,13 @@ public class ClientPlayerMove : NetworkBehaviour
             m_StarterAssetsInputs.enabled = false;
             m_PlayerInput.enabled = false;
             m_ThirdPersonController.enabled = false;
+
             if (m_CharacterController != null)
                 m_CharacterController.enabled = false;
         }
     }
 
-    // --- Lï¿½gica de Cï¿½mera (Sem mudanï¿½as) ---
+    // 
     private void AttemptCameraHook()
     {
         sceneVirtualCamera = Object.FindFirstObjectByType<CinemachineVirtualCamera>();
@@ -124,13 +132,13 @@ public class ClientPlayerMove : NetworkBehaviour
         }
     }
 
-    // --- NOVO Mï¿½TODO (Apenas movemos o cï¿½digo para cï¿½) ---
+    // 
     private void TeleportToSpawn()
     {
         Transform spawn = GameObject.Find("SpawnPoint")?.transform;
         if (spawn != null)
         {
-            // Lï¿½gica de teleporte segura
+            
             bool ccWasEnabled = m_CharacterController.enabled;
             if (ccWasEnabled) m_CharacterController.enabled = false;
 
@@ -148,7 +156,7 @@ public class ClientPlayerMove : NetworkBehaviour
     }
 
 
-    // --- RPC e LateUpdate (Sem mudanï¿½as, jï¿½ estavam corretos) ---
+    // --- RPC e LateUpdate  ---
     [Rpc(SendTo.Server)]
     private void UpdateInputServerRpc(Vector2 move, bool jump, bool sprint, float cameraYaw)
     {
