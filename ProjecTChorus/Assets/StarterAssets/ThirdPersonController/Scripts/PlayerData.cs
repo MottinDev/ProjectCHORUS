@@ -18,10 +18,14 @@ public class PlayerData : NetworkBehaviour
     // ⚠️ Chave secreta da nossa API (deve ser a MESMA do arquivo .env)
     private string m_ApiSecretKey = "MEU_SEGREDO_SUPER_SEGURO_DO_UNITY_12345";
 
+#if UNITY_SERVER
+    private string m_ApiBaseUrl = "http://localhost:5000";
+#else
     // URL da API (rodando localmente no Docker)
     // Se o servidor Unity rodar em um PC e o Docker em outro, 
     // troque 'localhost' pelo IP da máquina do Docker.
     private string m_ApiBaseUrl = "http://44.203.6.233";
+#endif
 
     // Classe auxiliar para parsear a resposta JSON da API
     [System.Serializable]

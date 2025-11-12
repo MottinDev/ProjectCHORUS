@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,6 +16,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using UnityEngine.Networking;
 using System.Text;
+using System;
 
 
 public class LobbyManager : MonoBehaviour
@@ -45,10 +46,18 @@ public class LobbyManager : MonoBehaviour
     [SerializeField] private Button startGameButton;
     [SerializeField] private GameObject playerItemPrefab;
 
-    // --- 2. ADICIONADO: Configura��o da API Customizada ---
+    // --- 2. ADICIONADO: Configuração da API Customizada ---
     [Header("Custom API Config")]
     private string m_ApiSecretKey = "MEU_SEGREDO_SUPER_SEGURO_DO_UNITY_12345";
+
+#if UNITY_SERVER
+    private string m_ApiBaseUrl = "http://localhost:5000";
+#else
     private string m_ApiBaseUrl = "http://44.203.6.233";
+#endif
+
+    private float timeSinceLastRefresh = 0f;
+    private float refreshCooldown = 5.0f; // 5 segundos de espera
 
     // --- 3. ADICIONADO: Classe auxiliar para JSON ---
     [System.Serializable]
@@ -57,21 +66,22 @@ public class LobbyManager : MonoBehaviour
         public string nick;
     }
 
-    // Vari�veis de estado
+    // Variáveis de estado
     private Lobby joinedLobby;
     private string playerName;
 
 
-    // --- CORRE��O DE COROUTINE ---
+    // --- CORREÇÃO DE COROUTINE ---
     // Removemos a Coroutine e usamos um CancellationToken para o loop async
     private CancellationTokenSource heartbeatCancelToken;
 
     private string connectionType = "dtls";
 
-    // --- PASSO 1: INICIALIZA��O E AUTENTICA��O ---
+    // --- PASSO 1: INICIALIZAÇÃO E AUTENTICAÇÃO ---
 
     async void Start()
     {
+        // 1. Esconde todos os painéis
         panelLobbyList.SetActive(false);
         panelCreateLobby.SetActive(false);
         panelJoinedLobby.SetActive(false);
@@ -79,32 +89,124 @@ public class LobbyManager : MonoBehaviour
 
         try
         {
+            // --- 2. ESCOLHE O MÉTODO DE AUTENTICAÇÃO ---
+
+#if UNITY_SERVER
+            // --- FLUXO DE AUTENTICAÇÃO DO SERVIDOR DEDICADO (MÉTODO ANTIGO/COMPATÍVEL) ---
+
+            // 1. Define um profile (ainda é uma boa prática)
+            InitializationOptions options = new InitializationOptions();
+            options.SetProfile("dedicated-server-profile");
+
+            Debug.Log("Servidor Dedicado: Inicializando serviços...");
+            await UnityServices.InitializeAsync(options);
+
+            // 2. Lê as chaves que o docker-compose injetou
+            string keyId = Environment.GetEnvironmentVariable("UNITY_SERVICE_KEY_ID");
+            string secretKey = Environment.GetEnvironmentVariable("UNITY_SERVICE_SECRET_KEY");
+
+            if (string.IsNullOrEmpty(keyId) || string.IsNullOrEmpty(secretKey))
+            {
+                Debug.LogError("FALHA CRÍTICA: Chaves de Serviço (Key ID ou Secret Key) não encontradas. Verifique o .env e docker-compose.yml.");
+                return; // Não continuar
+            }
+
+            // 3. Autentica usando o AuthenticationService diretamente
+            Debug.Log($"Serviços inicializados. Autenticando com Key ID: {keyId}...");
+
+            await AuthenticationService.Instance.SignInAnonymouslyAsync();
+
+            Debug.Log($"Servidor autenticado com sucesso via Key ID: {keyId}");
+
+            // O atraso de 2s ainda é uma boa ideia
+            await Task.Delay(2000);
+
+            Debug.Log("Sincronização concluída. Criando lobby...");
+            AutoCreateLobby_Server();
+
+#else
+            // --- FLUXO DE AUTENTICAÇÃO DO CLIENTE (JOGADOR) ---
             string profile = "default-profile";
 #if UNITY_EDITOR
-            profile = "editor-profile-" + Random.Range(1, 1000);
+                profile = "editor-profile-" + UnityEngine.Random.Range(1, 1000);
 #endif
 
             InitializationOptions options = new InitializationOptions();
             options.SetProfile(profile);
-
+            
             await UnityServices.InitializeAsync(options);
 
-            if (AuthenticationService.Instance.IsSignedIn)
+            if (!AuthenticationService.Instance.IsSignedIn)
             {
-                //AuthenticationService.Instance.SignOut();
-                Debug.Log($"Player Signed In: {AuthenticationService.Instance.PlayerId} (Profile: {profile})");
+                await AuthenticationService.Instance.SignInAnonymouslyAsync();
             }
+            Debug.Log($"Cliente autenticado: {AuthenticationService.Instance.PlayerId}");
 
-            //await AuthenticationService.Instance.SignInAnonymouslyAsync();
+            Debug.Log("Este é um Client. Checando perfil...");
             await CheckProfileAsync();
-
+            desbloquearCursor();
+#endif
         }
         catch (System.Exception e)
         {
             Debug.LogError($"Erro ao inicializar ou autenticar: {e}");
         }
+    }
 
-        desbloquearCursor();
+    /// <summary>
+    /// Esta função é chamada AUTOMATICAMENTE se o build for UNITY_SERVER.
+    /// Ela cria um lobby público e inicia o servidor.
+    /// </summary>
+    private async void AutoCreateLobby_Server()
+    {
+        // Defina os valores do seu servidor aqui
+        string lobbyName = "Servidor Dedicado (ProjectCHORUS)";
+        bool isPrivate = false;
+        int maxPlayers = 4; // Ou o seu máximo
+
+        try
+        {
+            // 1. O Player é 'null' porque somos um servidor dedicado
+            CreateLobbyOptions options = new CreateLobbyOptions
+            {
+                IsPrivate = isPrivate,
+                Player = null
+            };
+
+            joinedLobby = await LobbyService.Instance.CreateLobbyAsync(lobbyName, maxPlayers, options);
+
+            // 2. Aloca o Relay (idêntico)
+            Allocation allocation = await RelayService.Instance.CreateAllocationAsync(maxPlayers - 1);
+            string joinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
+
+            Debug.Log($"[Servidor] Lobby Criado! Join Code: {joinCode}");
+
+            // 3. Salva o Join Code no Lobby (idêntico)
+            await LobbyService.Instance.UpdateLobbyAsync(joinedLobby.Id, new UpdateLobbyOptions
+            {
+                Data = new Dictionary<string, DataObject>
+                { { "RELAY_JOIN_CODE", new DataObject(DataObject.VisibilityOptions.Member, joinCode) } }
+            });
+
+            await Task.Delay(300);
+
+            // 4. Configura o Transporte (idêntico)
+            UnityTransport utp = NetworkManager.Singleton.GetComponent<UnityTransport>();
+            utp.SetRelayServerData(AllocationUtils.ToRelayServerData(allocation, connectionType));
+
+            // 5. Inicia o NetworkManager como SERVIDOR (não Host)
+            NetworkManager.Singleton.StartServer();
+
+            Debug.Log($"[Servidor] Servidor iniciado e lobby '{lobbyName}' está público.");
+
+            // 6. Inicia o Heartbeat (Obrigatório!)
+            // O servidor também precisa manter o lobby vivo.
+            StartHeartbeat(15f);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[Servidor] FALHA ao criar lobby: {e}");
+        }
     }
 
     private async Task CheckProfileAsync()
@@ -120,7 +222,7 @@ public class LobbyManager : MonoBehaviour
             {
                 await request.SendWebRequest();
 
-                if (request.result == UnityWebRequest.Result.Success) // C�digo 200
+                if (request.result == UnityWebRequest.Result.Success) // Código 200
                 {
                     // --- NICK ENCONTRADO ---
                     string jsonResponse = request.downloadHandler.text;
@@ -129,20 +231,20 @@ public class LobbyManager : MonoBehaviour
 
                     Debug.Log($"[Profile] Nick '{playerName}' carregado da API.");
 
-                    // Sincroniza o nick com o Unity Auth (boa pr�tica)
+                    // Sincroniza o nick com o Unity Auth (boa prática)
                     await UpdatePlayerNameAsync(playerName);
 
                     // Redireciona para o Jogo (Lobby List)
                     panelProfile.SetActive(false);
                     panelLobbyList.SetActive(true);
-                    RefreshLobbyList(); // J� carrega a lista
+                    RefreshLobbyList(); // Já carrega a lista
                 }
                 else if (request.responseCode == 404)
                 {
-                    // --- NICK N�O ENCONTRADO ---
-                    Debug.Log("[Profile] Nick n�o encontrado. Exibindo painel de cria��o.");
+                    // --- NICK NÃO ENCONTRADO ---
+                    Debug.Log("[Profile] Nick não encontrado. Exibindo painel de criação.");
 
-                    // Mostra o painel de cria��o
+                    // Mostra o painel de criação
                     panelProfile.SetActive(true);
                     panelLobbyList.SetActive(false);
                 }
@@ -167,7 +269,7 @@ public class LobbyManager : MonoBehaviour
         playerName = playerNameInput.text;
         if (string.IsNullOrWhiteSpace(playerName))
         {
-            Debug.LogWarning("O nome n�o pode estar vazio.");
+            Debug.LogWarning("O nome não pode estar vazio.");
             return;
         }
 
@@ -197,15 +299,15 @@ public class LobbyManager : MonoBehaviour
             catch (System.Exception e)
             {
                 Debug.LogError($"[Profile] Falha ao SALVAR nick na API: {e.Message}");
-                // N�o continuar se n�o conseguir salvar
+                // Não continuar se não conseguir salvar
                 return;
             }
         }
 
-        // --- 2. Salvar no Unity Auth (c�digo original) ---
+        // --- 2. Salvar no Unity Auth (código original) ---
         await UpdatePlayerNameAsync(playerName);
 
-        // --- 3. Mudar de painel (c�digo original) ---
+        // --- 3. Mudar de painel (código original) ---
         panelProfile.SetActive(false);
         panelLobbyList.SetActive(true);
         RefreshLobbyList();
@@ -257,6 +359,16 @@ public class LobbyManager : MonoBehaviour
 
     public async void RefreshLobbyList()
     {
+        // Checa se já passou tempo suficiente desde a última atualização
+        if (Time.time < timeSinceLastRefresh + refreshCooldown)
+        {
+            Debug.LogWarning("RefreshLobbyList chamado muito rápido. Esperando cooldown.");
+            return; // Sai da função mais cedo
+        }
+
+        // Atualiza o tempo da última atualização
+        timeSinceLastRefresh = Time.time;
+
         try
         {
             QueryLobbiesOptions options = new QueryLobbiesOptions();
@@ -331,7 +443,7 @@ public class LobbyManager : MonoBehaviour
             panelCreateLobby.SetActive(false);
             panelJoinedLobby.SetActive(true);
 
-            // --- CORRE��O DE COROUTINE ---
+            // --- CORREÇÃO DE COROUTINE ---
             // Inicia o novo loop async
             StartHeartbeat(15f);
 
@@ -362,17 +474,17 @@ public class LobbyManager : MonoBehaviour
 
             if (!joinedLobby.Data.ContainsKey("RELAY_JOIN_CODE"))
             {
-                Debug.LogError("FALHA: O Host ainda n�o salvou o c�digo do Relay. (Race Condition)");
+                Debug.LogError("FALHA: O Host ainda não salvou o código do Relay. (Race Condition)");
                 return;
             }
             string joinCode = joinedLobby.Data["RELAY_JOIN_CODE"].Value;
             if (string.IsNullOrEmpty(joinCode))
             {
-                Debug.LogError("FALHA: O c�digo do Relay foi encontrado, mas estava vazio.");
+                Debug.LogError("FALHA: O código do Relay foi encontrado, mas estava vazio.");
                 return;
             }
 
-            Debug.Log($"C�digo do Relay encontrado: {joinCode}. Tentando entrar...");
+            Debug.Log($"Código do Relay encontrado: {joinCode}. Tentando entrar...");
 
             JoinAllocation joinAllocation = await RelayService.Instance.JoinAllocationAsync(joinCode);
             Debug.Log("Conectado ao Relay com sucesso.");
@@ -384,7 +496,7 @@ public class LobbyManager : MonoBehaviour
             panelLobbyList.SetActive(false);
             panelJoinedLobby.SetActive(true);
 
-            // --- CORRE��O DE COROUTINE ---
+            // --- CORREÇÃO DE COROUTINE ---
             // Inicia o novo loop async
             StartHeartbeat(15f);
 
@@ -422,7 +534,7 @@ public class LobbyManager : MonoBehaviour
             }
             else
             {
-                // Se n�o (o async atrasou), usa o DestroyImmediate
+                // Se não (o async atrasou), usa o DestroyImmediate
                 // para obedecer o Unity Editor.
                 DestroyImmediate(child.gameObject);
             }
@@ -450,7 +562,7 @@ public class LobbyManager : MonoBehaviour
         }
     }
 
-    // --- NOVO: FUN��ES DE AJUDA PARA O LOOP DE HEARTBEAT ---
+    // --- NOVO: FUNÇÕES DE AJUDA PARA O LOOP DE HEARTBEAT ---
 
     private void StartHeartbeat(float waitTimeSeconds)
     {
@@ -479,7 +591,7 @@ public class LobbyManager : MonoBehaviour
 
             try
             {
-                // Os 'await' agora s�o v�lidos porque o m�todo � 'async'
+                // Os 'await' agora são válidos porque o método é 'async'
                 if (isHost)
                 {
                     await LobbyService.Instance.SendHeartbeatPingAsync(joinedLobby.Id);
@@ -487,7 +599,9 @@ public class LobbyManager : MonoBehaviour
 
                 joinedLobby = await LobbyService.Instance.GetLobbyAsync(joinedLobby.Id);
 
-                UpdateJoinedLobbyUI(joinedLobby);
+#if !UNITY_SERVER
+                    UpdateJoinedLobbyUI(joinedLobby);
+#endif
             }
             catch (LobbyServiceException e)
             {
@@ -496,17 +610,17 @@ public class LobbyManager : MonoBehaviour
                 {
                     panelJoinedLobby.SetActive(false);
                     panelLobbyList.SetActive(true);
-                    joinedLobby = null; // Isso far� o loop parar
+                    joinedLobby = null; // Isso fará o loop parar
                 }
             }
             catch (System.Exception e)
             {
-                // Se o token for cancelado, o Task.Delay lan�a uma exce��o
+                // Se o token for cancelado, o Task.Delay lança uma exceção
                 if (e is TaskCanceledException) break;
                 Debug.LogError($"Erro no Heartbeat: {e}");
             }
 
-            // 'await' agora � v�lido. Tamb�m passamos o token para que ele
+            // 'await' agora é válido. Também passamos o token para que ele
             // pare imediatamente se for cancelado.
             try
             {
@@ -514,13 +628,13 @@ public class LobbyManager : MonoBehaviour
             }
             catch (TaskCanceledException)
             {
-                // Esperado quando o StopHeartbeat � chamado
+                // Esperado quando o StopHeartbeat é chamado
                 break;
             }
         }
     }
 
-    // Helper (fun��o de ajuda)
+    // Helper (função de ajuda)
     private Player GetPlayer()
     {
         return new Player
