@@ -439,6 +439,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 255e9d7951d99a548a11287a3f3d33cb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ButtonTrigger
+  ShowTopMostFoldoutHeaderGroup: 1
   buttonID: B
 --- !u!136 &473457880
 CapsuleCollider:
@@ -528,7 +529,7 @@ Transform:
   m_GameObject: {fileID: 473457878}
   serializedVersion: 2
   m_LocalRotation: {x: -0.6956581, y: 0.12672752, z: 0.12672748, w: 0.6956581}
-  m_LocalPosition: {x: 5.94, y: 0.316, z: 8.67}
+  m_LocalPosition: {x: 7.178, y: 0.32, z: 11.976}
   m_LocalScale: {x: 0.14599833, y: 0.03853836, z: 0.16806453}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1855,6 +1856,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 255e9d7951d99a548a11287a3f3d33cb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ButtonTrigger
+  ShowTopMostFoldoutHeaderGroup: 1
   buttonID: A
 --- !u!136 &973142251
 CapsuleCollider:
@@ -1944,7 +1946,7 @@ Transform:
   m_GameObject: {fileID: 973142249}
   serializedVersion: 2
   m_LocalRotation: {x: -0.6956581, y: 0.12672752, z: 0.12672748, w: 0.6956581}
-  m_LocalPosition: {x: 10.965, y: 0.316, z: 7.658}
+  m_LocalPosition: {x: 11.95, y: 0.32, z: 10.281}
   m_LocalScale: {x: 0.14599833, y: 0.03853836, z: 0.16806453}
   m_ConstrainProportionsScale: 0
   m_Children: []
