@@ -48,7 +48,7 @@ public class LobbyManager : MonoBehaviour
     // --- 2. ADICIONADO: Configuração da API Customizada ---
     [Header("Custom API Config")]
     private string m_ApiSecretKey = "MEU_SEGREDO_SUPER_SEGURO_DO_UNITY_12345";
-    private string m_ApiBaseUrl = "http://localhost:5000";
+    private string m_ApiBaseUrl = "http://44.203.6.233";
 
     // --- 3. ADICIONADO: Classe auxiliar para JSON ---
     [System.Serializable]

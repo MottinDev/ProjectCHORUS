@@ -21,7 +21,7 @@ public class PlayerData : NetworkBehaviour
     // URL da API (rodando localmente no Docker)
     // Se o servidor Unity rodar em um PC e o Docker em outro, 
     // troque 'localhost' pelo IP da máquina do Docker.
-    private string m_ApiBaseUrl = "http://localhost:5000";
+    private string m_ApiBaseUrl = "http://44.203.6.233";
 
     // Classe auxiliar para parsear a resposta JSON da API
     [System.Serializable]
