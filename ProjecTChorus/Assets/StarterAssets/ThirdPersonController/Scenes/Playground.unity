@@ -170,12 +170,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 196637972}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 17.256, y: 2.10164, z: 21.707}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 15.66666, y: 1.15719, z: 9.456941}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 1980079345}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &196637975
 MonoBehaviour:
@@ -348,11 +348,11 @@ Transform:
   m_GameObject: {fileID: 426828636}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0.16704802, z: -0, w: 0.98594886}
-  m_LocalPosition: {x: 14.213, y: 0.85, z: 23.661}
+  m_LocalPosition: {x: 12.62366, y: -0.09445, z: 11.410939}
   m_LocalScale: {x: 0.10896, y: 1.6334, z: 1.9894191}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 1980079345}
   m_LocalEulerAnglesHint: {x: 0, y: 19.232, z: 0}
 --- !u!1 &466147889
 GameObject:
@@ -459,9 +459,9 @@ CapsuleCollider:
   m_Enabled: 1
   serializedVersion: 2
   m_Radius: 0.5000001
-  m_Height: 7.167582
+  m_Height: 14.240583
   m_Direction: 1
-  m_Center: {x: 0.00000041681733, y: 1.4033077, z: -0.00000008866333}
+  m_Center: {x: 0.0000020557, y: 4.9398193, z: -0.00000008866334}
 --- !u!23 &473457881
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -527,11 +527,11 @@ Transform:
   m_GameObject: {fileID: 473457878}
   serializedVersion: 2
   m_LocalRotation: {x: -0.6956581, y: 0.12672752, z: 0.12672748, w: 0.6956581}
-  m_LocalPosition: {x: 8.78, y: 1.26, z: 24.244}
-  m_LocalScale: {x: 0.14599833, y: 0.03853836, z: 0.16806455}
+  m_LocalPosition: {x: 7.1906595, y: 0.31554997, z: 11.993939}
+  m_LocalScale: {x: 0.14599833, y: 0.03853836, z: 0.16806453}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 1980079345}
   m_LocalEulerAnglesHint: {x: -90, y: 0, z: 20.649}
 --- !u!1 &542508511
 GameObject:
@@ -1156,6 +1156,37 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 733371301}
   m_CullTransparentMesh: 1
+--- !u!1 &742867608
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 742867609}
+  m_Layer: 0
+  m_Name: SpawnPoint
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &742867609
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 742867608}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.2, y: 1.68, z: 3.88}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &746329221
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1791,9 +1822,9 @@ CapsuleCollider:
   m_Enabled: 1
   serializedVersion: 2
   m_Radius: 0.5000001
-  m_Height: 7.409603
+  m_Height: 18.488539
   m_Direction: 1
-  m_Center: {x: 0.00000041594328, y: 1.5243183, z: -0.00000008866333}
+  m_Center: {x: 0.00000848168, y: 7.0638275, z: -0.00000008866333}
 --- !u!23 &973142252
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1859,11 +1890,11 @@ Transform:
   m_GameObject: {fileID: 973142249}
   serializedVersion: 2
   m_LocalRotation: {x: -0.6956581, y: 0.12672752, z: 0.12672748, w: 0.6956581}
-  m_LocalPosition: {x: 13.55, y: 1.26, z: 22.55}
-  m_LocalScale: {x: 0.14599833, y: 0.03853836, z: 0.16806455}
+  m_LocalPosition: {x: 11.96066, y: 0.31554997, z: 10.299939}
+  m_LocalScale: {x: 0.14599833, y: 0.03853836, z: 0.16806453}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 1980079345}
   m_LocalEulerAnglesHint: {x: -90, y: 0, z: 20.649}
 --- !u!1 &1008475511
 GameObject:
@@ -2270,7 +2301,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 665119354}
   m_Direction: 0
   m_Value: 1
-  m_Size: 1
+  m_Size: 0.99999994
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -2965,111 +2996,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 8345070699079395522, guid: 09aade0ecefd01e4b8f7661acf64f5c2, type: 3}
   m_PrefabInstance: {fileID: 8345070700268369567}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1591850913
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1591850916}
-  - component: {fileID: 1591850915}
-  - component: {fileID: 1591850914}
-  m_Layer: 0
-  m_Name: NetworkManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1591850914
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1591850913}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6960e84d07fb87f47956e7a81d71c4e6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.Transports.UTP.UnityTransport
-  m_ProtocolType: 0
-  m_UseWebSockets: 0
-  m_UseEncryption: 0
-  m_MaxPacketQueueSize: 128
-  m_MaxPayloadSize: 6144
-  m_HeartbeatTimeoutMS: 500
-  m_ConnectTimeoutMS: 1000
-  m_MaxConnectAttempts: 60
-  m_DisconnectTimeoutMS: 30000
-  ConnectionData:
-    Address: 127.0.0.1
-    Port: 7777
-    ServerListenAddress: 127.0.0.1
-  DebugSimulator:
-    PacketDelayMS: 0
-    PacketJitterMS: 0
-    PacketDropRate: 0
---- !u!114 &1591850915
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1591850913}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 593a2fe42fa9d37498c96f9a383b6521, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkManager
-  NetworkManagerExpanded: 0
-  NetworkConfig:
-    ProtocolVersion: 0
-    NetworkTransport: {fileID: 1591850914}
-    PlayerPrefab: {fileID: 4103505962400149458, guid: 309554693e9440d4788c443fa5474dcb, type: 3}
-    Prefabs:
-      NetworkPrefabsLists:
-      - {fileID: 11400000, guid: 1179229b4b27b1046a98dffd6bc0c76c, type: 2}
-    TickRate: 30
-    ClientConnectionBufferTimeout: 10
-    ConnectionApproval: 0
-    ConnectionData: 
-    EnableTimeResync: 0
-    TimeResyncInterval: 30
-    EnsureNetworkVariableLengthSafety: 0
-    EnableSceneManagement: 1
-    ForceSamePrefabs: 1
-    RecycleNetworkIds: 1
-    NetworkIdRecycleDelay: 120
-    RpcHashSize: 0
-    LoadSceneTimeOut: 120
-    SpawnTimeout: 10
-    EnableNetworkLogs: 1
-    NetworkTopology: 0
-    UseCMBService: 0
-    AutoSpawnPlayerPrefabClientSide: 1
-    NetworkMessageMetrics: 1
-    NetworkProfilingMetrics: 1
-    OldPrefabList: []
-  RunInBackground: 1
-  LogLevel: 1
---- !u!4 &1591850916
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1591850913}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 10.51033, y: 4.13672, z: 8.68359}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1610056423
 GameObject:
   m_ObjectHideFlags: 0
@@ -3384,6 +3310,41 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 2f7f3dde7ae722a4aafffe20691ad702, type: 3}
+--- !u!1 &1980079344
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1980079345}
+  m_Layer: 0
+  m_Name: DoorPuzzle
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1980079345
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1980079344}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 1.58934, y: 0.94445, z: 12.25006}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 426828640}
+  - {fileID: 196637974}
+  - {fileID: 973142254}
+  - {fileID: 473457883}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2067310247
 GameObject:
   m_ObjectHideFlags: 0
@@ -3939,10 +3900,7 @@ SceneRoots:
   - {fileID: 1402827283}
   - {fileID: 1979352518}
   - {fileID: 746329221}
-  - {fileID: 1591850916}
   - {fileID: 2077052021}
   - {fileID: 600311814}
-  - {fileID: 426828640}
-  - {fileID: 196637974}
-  - {fileID: 973142254}
-  - {fileID: 473457883}
+  - {fileID: 742867609}
+  - {fileID: 1980079345}

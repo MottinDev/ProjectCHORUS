@@ -13,6 +13,7 @@ public class StarterAssetsInputs : NetworkBehaviour
     public Vector2 look;
     public bool jump;
     public bool sprint;
+    public bool interact;
 
     [Header("Chat Mode")]
     public bool isChatting = false; // O ChatManager vai controlar isso
@@ -61,6 +62,10 @@ public class StarterAssetsInputs : NetworkBehaviour
     {
         SprintInput(value.isPressed);
     }
+    public void OnInteract(InputValue value)
+    {
+        InteractInput(value.isPressed);
+    }
 #endif
 
     public void MoveInput(Vector2 newMoveDirection)
@@ -98,10 +103,28 @@ public class StarterAssetsInputs : NetworkBehaviour
     // --- CONTROLE DO CURSOR ---
     private void OnApplicationFocus(bool hasFocus)
     {
+        // <-- MUDANÇA CRÍTICA -->
+        // Se este componente de script não estiver habilitado,
+        // não faça absolutamente nada.
+        if (!enabled)
+        {
+            return;
+        }
+
+        // Se o script ESTIVER habilitado (ex: no Playground),
+        // a lógica antiga funciona.
         if (!isChatting)
         {
             SetCursorState(cursorLocked);
         }
+    }
+    public void InteractInput(bool newInteractState)
+    {
+        // Se estiver no chat, não faça nada
+        if (isChatting) return;
+
+        // Os scripts de interação (Jukebox/Porta) vão consumir isso
+        interact = newInteractState;
     }
 
     public void SetCursorState(bool newState)
