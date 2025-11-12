@@ -14,6 +14,8 @@ using Unity.Services.Relay.Models;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using UnityEngine.Networking;
+using System.Text;
 
 
 public class LobbyManager : MonoBehaviour
@@ -43,9 +45,22 @@ public class LobbyManager : MonoBehaviour
     [SerializeField] private Button startGameButton;
     [SerializeField] private GameObject playerItemPrefab;
 
+    // --- 2. ADICIONADO: Configuração da API Customizada ---
+    [Header("Custom API Config")]
+    private string m_ApiSecretKey = "MEU_SEGREDO_SUPER_SEGURO_DO_UNITY_12345";
+    private string m_ApiBaseUrl = "http://localhost:5000";
+
+    // --- 3. ADICIONADO: Classe auxiliar para JSON ---
+    [System.Serializable]
+    private class NickResponse
+    {
+        public string nick;
+    }
+
     // Variáveis de estado
     private Lobby joinedLobby;
     private string playerName;
+
 
     // --- CORREÇÃO DE COROUTINE ---
     // Removemos a Coroutine e usamos um CancellationToken para o loop async
@@ -60,13 +75,13 @@ public class LobbyManager : MonoBehaviour
         panelLobbyList.SetActive(false);
         panelCreateLobby.SetActive(false);
         panelJoinedLobby.SetActive(false);
-        panelProfile.SetActive(true);
+        panelProfile.SetActive(false);
 
         try
         {
             string profile = "default-profile";
 #if UNITY_EDITOR
-            profile = "editor-profile";
+            profile = "editor-profile-" + Random.Range(1, 1000);
 #endif
 
             InitializationOptions options = new InitializationOptions();
@@ -76,11 +91,13 @@ public class LobbyManager : MonoBehaviour
 
             if (AuthenticationService.Instance.IsSignedIn)
             {
-                AuthenticationService.Instance.SignOut();
+                //AuthenticationService.Instance.SignOut();
+                Debug.Log($"Player Signed In: {AuthenticationService.Instance.PlayerId} (Profile: {profile})");
             }
 
-            await AuthenticationService.Instance.SignInAnonymouslyAsync();
-            Debug.Log($"Player Signed In: {AuthenticationService.Instance.PlayerId} (Profile: {profile})");
+            //await AuthenticationService.Instance.SignInAnonymouslyAsync();
+            await CheckProfileAsync();
+
         }
         catch (System.Exception e)
         {
@@ -88,6 +105,110 @@ public class LobbyManager : MonoBehaviour
         }
 
         desbloquearCursor();
+    }
+
+    private async Task CheckProfileAsync()
+    {
+        string authId = AuthenticationService.Instance.PlayerId;
+        string url = $"{m_ApiBaseUrl}/player/{authId}/nick";
+
+        using (UnityWebRequest request = UnityWebRequest.Get(url))
+        {
+            request.SetRequestHeader("Authorization", $"Bearer {m_ApiSecretKey}");
+
+            try
+            {
+                await request.SendWebRequest();
+
+                if (request.result == UnityWebRequest.Result.Success) // Código 200
+                {
+                    // --- NICK ENCONTRADO ---
+                    string jsonResponse = request.downloadHandler.text;
+                    NickResponse data = JsonUtility.FromJson<NickResponse>(jsonResponse);
+                    playerName = data.nick; // Salva o nick globalmente
+
+                    Debug.Log($"[Profile] Nick '{playerName}' carregado da API.");
+
+                    // Sincroniza o nick com o Unity Auth (boa prática)
+                    await UpdatePlayerNameAsync(playerName);
+
+                    // Redireciona para o Jogo (Lobby List)
+                    panelProfile.SetActive(false);
+                    panelLobbyList.SetActive(true);
+                    RefreshLobbyList(); // Já carrega a lista
+                }
+                else if (request.responseCode == 404)
+                {
+                    // --- NICK NÃO ENCONTRADO ---
+                    Debug.Log("[Profile] Nick não encontrado. Exibindo painel de criação.");
+
+                    // Mostra o painel de criação
+                    panelProfile.SetActive(true);
+                    panelLobbyList.SetActive(false);
+                }
+                else
+                {
+                    // Outro erro
+                    throw new System.Exception($"Erro da API: {request.error}");
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[Profile] Falha ao checar nick: {e.Message}");
+                // Fallback: Se a API falhar, mostrar o painel de profile
+                panelProfile.SetActive(true);
+                panelLobbyList.SetActive(false);
+            }
+        }
+    }
+
+    public async void OnConfirmProfile()
+    {
+        playerName = playerNameInput.text;
+        if (string.IsNullOrWhiteSpace(playerName))
+        {
+            Debug.LogWarning("O nome não pode estar vazio.");
+            return;
+        }
+
+        // --- 1. Salvar na API Customizada (POST) ---
+        string authId = AuthenticationService.Instance.PlayerId;
+        string url = $"{m_ApiBaseUrl}/player/{authId}/nick";
+
+        string jsonPayload = $"{{\"nick\":\"{playerName}\"}}";
+        byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
+
+        using (UnityWebRequest request = new UnityWebRequest(url, "POST"))
+        {
+            request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SetRequestHeader("Content-Type", "application/json");
+            request.SetRequestHeader("Authorization", $"Bearer {m_ApiSecretKey}");
+
+            try
+            {
+                await request.SendWebRequest();
+                if (request.result != UnityWebRequest.Result.Success)
+                {
+                    throw new System.Exception(request.error);
+                }
+                Debug.Log($"[Profile] Nick '{playerName}' salvo na API customizada.");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[Profile] Falha ao SALVAR nick na API: {e.Message}");
+                // Não continuar se não conseguir salvar
+                return;
+            }
+        }
+
+        // --- 2. Salvar no Unity Auth (código original) ---
+        await UpdatePlayerNameAsync(playerName);
+
+        // --- 3. Mudar de painel (código original) ---
+        panelProfile.SetActive(false);
+        panelLobbyList.SetActive(true);
+        RefreshLobbyList();
     }
 
     public void desbloquearCursor()
@@ -108,16 +229,16 @@ public class LobbyManager : MonoBehaviour
         panelLobbyList.SetActive(true);
     }
 
-    public async void OnConfirmProfile()
-    {
-        playerName = playerNameInput.text;
-        await UpdatePlayerNameAsync(playerName);
+    //public async void OnConfirmProfile()
+    //{
+    //    playerName = playerNameInput.text;
+    //    await UpdatePlayerNameAsync(playerName);
 
-        panelProfile.SetActive(false);
-        panelLobbyList.SetActive(true);
+    //    panelProfile.SetActive(false);
+    //    panelLobbyList.SetActive(true);
 
-        RefreshLobbyList();
-    }
+    //    RefreshLobbyList();
+    //}
 
     private async Task UpdatePlayerNameAsync(string name)
     {

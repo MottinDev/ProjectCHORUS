@@ -439,7 +439,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 255e9d7951d99a548a11287a3f3d33cb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ButtonTrigger
-  ShowTopMostFoldoutHeaderGroup: 1
   buttonID: B
 --- !u!136 &473457880
 CapsuleCollider:
@@ -1856,7 +1855,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 255e9d7951d99a548a11287a3f3d33cb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ButtonTrigger
-  ShowTopMostFoldoutHeaderGroup: 1
   buttonID: A
 --- !u!136 &973142251
 CapsuleCollider:
