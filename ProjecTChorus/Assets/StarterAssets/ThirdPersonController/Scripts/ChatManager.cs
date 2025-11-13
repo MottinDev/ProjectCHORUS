@@ -5,6 +5,9 @@ using UnityEngine.UI;
 using System.Collections;
 using UnityEngine.InputSystem;
 using System.Collections.Generic;
+using UnityEngine.Networking;
+using System.Text;
+using System.Threading.Tasks;
 
 public class ChatManager : NetworkBehaviour
 {
@@ -29,6 +32,36 @@ public class ChatManager : NetworkBehaviour
     // O Relógio Lógico do Servidor (Começa em 0)
     private int serverLogicalClock = 0;
 
+    // --- Config da API (somente nick e message_text) ---
+    [Header("Custom API Config")]
+    [SerializeField] private string apiSecretKey = "MEU_SEGREDO_SUPER_SEGURO_DO_UNITY_12345";
+
+#if UNITY_SERVER
+    [SerializeField] private string apiBaseUrl = "http://localhost:5000";
+#else
+    [SerializeField] private string apiBaseUrl = "http://3.222.116.91";
+#endif
+
+    [System.Serializable]
+    private class ChatPostBody
+    {
+        public string nick;
+        public string message_text;
+    }
+
+    [System.Serializable]
+    private class ChatMessageRow
+    {
+        public string nick;
+        public string message_text;
+        public string timestamp;
+    }
+
+    [System.Serializable]
+    private class ChatMessageListWrapper
+    {
+        public List<ChatMessageRow> items;
+    }
 
     private void Awake()
     {
@@ -66,26 +99,71 @@ public class ChatManager : NetworkBehaviour
         {
             chatCanvasGroup.alpha = 0f;
         }
+
+        // Cliente carrega histórico ao entrar
+        if (IsClient)
+        {
+            _ = FetchAndShowHistoryAsync();
+        }
     }
 
     // --- RPCs e Handlers de Conexão  ---
-    public override void OnNetworkDespawn() { if (IsServer) { NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected; NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected; } }
+    public override void OnNetworkDespawn()
+    {
+        if (IsServer)
+        {
+            NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected;
+            NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
+        }
+    }
+
     private void HandleClientConnected(ulong clientId)
     {
-        serverLogicalClock++; // Relógio avança
-        BroadcastMessageClientRpc($"[SISTEMA]: Jogador {clientId} entrou na sala.", serverLogicalClock, default);
+        //serverLogicalClock++; // Relógio avança
+        //BroadcastMessageClientRpc($"[SISTEMA]: Jogador {clientId} entrou na sala.", serverLogicalClock, default);
+
+        // NÃO ENVIE A MENSAGEM AQUI.
+        // É muito cedo, o PlayerData ainda não se registrou e não temos o nick.
+        // A mensagem será enviada pelo RegisterPlayer().
+        Debug.Log($"[ChatManager] Cliente {clientId} conectou. Aguardando registro do PlayerData.");
+
+        // (Remova o serverLogicalClock++ e o BroadcastMessageClientRpc daqui)
     }
+    //private void HandleClientDisconnected(ulong clientId)
+    //{
+
+    //    if (m_PlayerDataMap.ContainsKey(clientId))
+    //    {
+    //        m_PlayerDataMap.Remove(clientId);
+    //        Debug.Log($"[ChatManager] Desregistrou PlayerData para {clientId}.");
+    //    }
+
+    //    serverLogicalClock++; // Relógio avança
+    //    BroadcastMessageClientRpc($"[SISTEMA]: Jogador {clientId} saiu na sala.", serverLogicalClock, default);
+    //}
+
     private void HandleClientDisconnected(ulong clientId)
     {
+        string nick = $"Jogador {clientId}"; // Nick padrão caso algo falhe
 
-        if (m_PlayerDataMap.ContainsKey(clientId))
+        // 1. Tenta pegar o nick ANTES de remover o jogador do mapa
+        if (m_PlayerDataMap.TryGetValue(clientId, out PlayerData playerData))
         {
+            nick = playerData.PlayerNick.Value.ToString(); // Pega o nick!
             m_PlayerDataMap.Remove(clientId);
-            Debug.Log($"[ChatManager] Desregistrou PlayerData para {clientId}.");
+            Debug.Log($"[ChatManager] Desregistrou PlayerData para {clientId} (Nick: {nick}).");
+        }
+        else
+        {
+            Debug.LogWarning($"[ChatManager] Cliente {clientId} desconectou, mas não estava no PlayerDataMap.");
         }
 
+        // (O 'if (m_PlayerDataMap.ContainsKey(clientId))' original foi substituído pela lógica acima)
+
         serverLogicalClock++; // Relógio avança
-        BroadcastMessageClientRpc($"[SISTEMA]: Jogador {clientId} saiu da sala.", serverLogicalClock, default);
+
+        // 2. Usa o nick na mensagem
+        BroadcastMessageClientRpc($"[SISTEMA]: {nick} saiu da sala.", serverLogicalClock, default);
     }
 
     [ServerRpc(RequireOwnership = false)]
@@ -100,7 +178,12 @@ public class ChatManager : NetworkBehaviour
         }
         string fMessage = $"[{nick}]: {message}";
         serverLogicalClock++; // Relógio avança
+
+        // Broadcast no jogo
         BroadcastMessageClientRpc(fMessage, serverLogicalClock, default);
+
+        // Persistência (somente mensagens públicas; evita sistema/privado)
+        _ = PersistPublicMessageAsync(nick, message);
     }
 
     [ClientRpc]
@@ -128,10 +211,6 @@ public class ChatManager : NetworkBehaviour
         // Itera por todo o dicionário de jogadores no servidor
         foreach (var entry in m_PlayerDataMap)
         {
-            // entry.Value é o PlayerData
-            // entry.Key é o ulong (ID)
-
-            // Comparamos o nick do jogador no mapa com o nick que recebemos
             if (entry.Value.PlayerNick.Value.ToString() == targetNick)
             {
                 targetClientId = entry.Key; // Encontramos! Guardamos o ID.
@@ -157,6 +236,8 @@ public class ChatManager : NetworkBehaviour
 
             serverLogicalClock++;
             BroadcastMessageClientRpc(fMessage, serverLogicalClock, clientRpcParams);
+
+            // Não persistimos mensagens privadas
         }
         else // Se não encontramos (targetClientId é nulo)
         {
@@ -175,49 +256,71 @@ public class ChatManager : NetworkBehaviour
             BroadcastMessageClientRpc(fMessage, serverLogicalClock, clientRpcParams);
         }
     }
+
     /// <summary>
     /// Chamado pelo PlayerData.OnNetworkSpawn() para se registrar no chat.
     /// (SÓ RODA NO SERVIDOR)
     /// </summary>
+    //public void RegisterPlayer(ulong netcodeClientId, PlayerData playerData)
+    //{
+    //    if (!IsServer) return; // Segurança
+
+    //    if (m_PlayerDataMap.ContainsKey(netcodeClientId))
+    //    {
+    //        Debug.LogWarning($"[ChatManager] Player {netcodeClientId} já está registrado. Sobrescrevendo.");
+    //        m_PlayerDataMap[netcodeClientId] = playerData;
+    //    }
+    //    else
+    //    {
+    //        m_PlayerDataMap.Add(netcodeClientId, playerData);
+    //        Debug.Log($"[ChatManager] Registrou PlayerData para {netcodeClientId}.");
+    //    }
+    //}
+
     public void RegisterPlayer(ulong netcodeClientId, PlayerData playerData)
     {
         if (!IsServer) return; // Segurança
 
+        // Pega o nick assim que o PlayerData chega
+        string nick = "Jogador (??)";
+        if (playerData != null)
+        {
+            nick = playerData.PlayerNick.Value.ToString();
+        }
+
         if (m_PlayerDataMap.ContainsKey(netcodeClientId))
         {
-            Debug.LogWarning($"[ChatManager] Player {netcodeClientId} já está registrado. Sobrescrevendo.");
+            Debug.LogWarning($"[ChatManager] Player {netcodeClientId} (Nick: {nick}) já está registrado. Sobrescrevendo.");
             m_PlayerDataMap[netcodeClientId] = playerData;
         }
         else
         {
             m_PlayerDataMap.Add(netcodeClientId, playerData);
-            Debug.Log($"[ChatManager] Registrou PlayerData para {netcodeClientId}.");
+            Debug.Log($"[ChatManager] Registrou PlayerData para {netcodeClientId} (Nick: {nick}).");
         }
+
+        // ----> ESTE É O LOCAL CORRETO <----
+        // Agora que o jogador está 100% registrado, anuncie sua entrada.
+        serverLogicalClock++; // Relógio avança
+        BroadcastMessageClientRpc($"[SISTEMA]: {nick} entrou na sala.", serverLogicalClock, default);
     }
+
     // --- LÓGICA DE CONTROLE CENTRALIZADA ---
     private void Update()
     {
         // --- LÓGICA DE BUSCA MELHORADA ---
-        // 1. Se não temos o input local, tentamos buscar.
-        // Usamos a checagem de "obj == null" que o Unity entende
-        // para o caso do PlayerObject ter sido destruído.
         if (localPlayerInputs == null)
         {
-            // Só tentamos buscar se o LocalClient e o PlayerObject existirem
             if (NetworkManager.Singleton.LocalClient != null && NetworkManager.Singleton.LocalClient.PlayerObject != null)
             {
                 localPlayerInputs = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<StarterAssetsInputs>();
             }
         }
 
-        // 2. Se, após a tentativa, ainda for nulo (ou não foi encontrado),
-        // não podemos fazer nada. Saia do Update.
         if (localPlayerInputs == null)
         {
             return;
         }
-
-        // --- SE CHEGAMOS AQUI, localPlayerInputs É VÁLIDO ---
 
         // Lógica para ABRIR o chat (tecla Enter)
         if (Keyboard.current != null && Keyboard.current.enterKey.wasPressedThisFrame)
@@ -263,14 +366,13 @@ public class ChatManager : NetworkBehaviour
             return;
         }
 
-
         if (message.StartsWith("/msg "))
         {
-            // Dividimos a mensagem: "/msg" "cugames" "Olá" "tudo" "bem"
-            string[] parts = message.Split(' ');
+            // Dividimos a mensagem: "/msg" "cugames" "Olá" "tudo" "bem"
+            string[] parts = message.Split(' ');
 
-            // Verificação de erro: /msg <nick> <mensagem>
-            if (parts.Length < 3)
+            // Verificação de erro: /msg <nick> <mensagem>
+            if (parts.Length < 3)
             {
                 AddLocalSystemMessage("[SISTEMA]: Formato incorreto. Use: /msg <Nick_do_Jogador> <mensagem>");
             }
@@ -292,10 +394,10 @@ public class ChatManager : NetworkBehaviour
             SubmitChatMessageServerRpc(message);
         }
 
-
         chatInputField.text = "";
         ExitChatMode();
     }
+
     /// <summary>
     /// Adiciona uma mensagem de REDE (com timestamp) ao log.
     /// </summary>
@@ -364,12 +466,10 @@ public class ChatManager : NetworkBehaviour
 
         if (chatInputField != null)
         {
-
             // Força o InputField a "desselecionar"
             chatInputField.DeactivateInputField();
             // Para garantir, diz ao EventSystem para não focar em nada
             UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
-
         }
 
         ResetInactivityTimer(); // Inicia o fade-out
@@ -413,5 +513,83 @@ public class ChatManager : NetworkBehaviour
             chatCanvasGroup.alpha = targetAlpha;
     }
 
-   
+    // --- Persistência: POST /chat/message (nick + message_text) ---
+    private async Task PersistPublicMessageAsync(string nick, string message)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(apiBaseUrl) || string.IsNullOrEmpty(apiSecretKey))
+                return;
+
+            // Evita gravar mensagens do sistema ou vazias
+            if (string.IsNullOrWhiteSpace(message) || string.IsNullOrWhiteSpace(nick))
+                return;
+
+            string url = $"{apiBaseUrl}/chat/message";
+            var body = new ChatPostBody { nick = nick, message_text = message };
+            string json = JsonUtility.ToJson(body);
+
+            using (var request = new UnityWebRequest(url, "POST"))
+            {
+                byte[] bodyRaw = Encoding.UTF8.GetBytes(json);
+                request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+                request.downloadHandler = new DownloadHandlerBuffer();
+                request.SetRequestHeader("Content-Type", "application/json");
+                request.SetRequestHeader("Authorization", $"Bearer {apiSecretKey}");
+
+                var op = request.SendWebRequest();
+                while (!op.isDone) await Task.Yield();
+
+                if (request.result != UnityWebRequest.Result.Success)
+                    Debug.LogWarning($"[ChatManager] Falha ao persistir mensagem: {request.responseCode} {request.error}");
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[ChatManager] Erro ao persistir mensagem: {e.Message}");
+        }
+    }
+
+    // --- Histórico: GET /chat/messages ---
+    private async Task FetchAndShowHistoryAsync()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(apiBaseUrl) || string.IsNullOrEmpty(apiSecretKey))
+                return;
+
+            string url = $"{apiBaseUrl}/chat/messages";
+            using (var request = UnityWebRequest.Get(url))
+            {
+                request.SetRequestHeader("Authorization", $"Bearer {apiSecretKey}");
+
+                var op = request.SendWebRequest();
+                while (!op.isDone) await Task.Yield();
+
+                if (request.result != UnityWebRequest.Result.Success)
+                {
+                    Debug.LogWarning($"[ChatManager] Falha ao obter histórico: {request.responseCode} {request.error}");
+                    return;
+                }
+
+                // JsonUtility não desserializa arrays raiz. Envelopamos em um objeto.
+                string raw = request.downloadHandler.text;
+                string wrapped = $"{{\"items\":{raw}}}";
+                var wrapper = JsonUtility.FromJson<ChatMessageListWrapper>(wrapped);
+
+                if (wrapper?.items != null)
+                {
+                    foreach (var msg in wrapper.items)
+                    {
+                        string line = $"[{msg.nick}]: {msg.message_text}";
+                        AddMessageToLog(line, 0); // timestamp "0" para histórico
+                    }
+                }
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[ChatManager] Erro ao carregar histórico: {e.Message}");
+        }
+    }
 }
