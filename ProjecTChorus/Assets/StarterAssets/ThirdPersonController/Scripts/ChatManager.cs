@@ -3,14 +3,20 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 using System.Collections;
-using UnityEngine.InputSystem; 
+using UnityEngine.InputSystem;
+using System.Collections.Generic;
 
 public class ChatManager : NetworkBehaviour
 {
+    //LÓGICA DO SINGLETON
+    public static ChatManager Instance { get; private set; }
+
     [Header("UI Elements")]
     public TMP_Text chatLogText;
     public TMP_InputField chatInputField;
     public Button sendButton;
+    // Este mapa só existirá no servidor e liga o NetcodeID ao PlayerData.
+    private Dictionary<ulong, PlayerData> m_PlayerDataMap = new Dictionary<ulong, PlayerData>();
 
     [Header("Fade Logic")]
     public CanvasGroup chatCanvasGroup;
@@ -24,6 +30,16 @@ public class ChatManager : NetworkBehaviour
     private int serverLogicalClock = 0;
 
 
+    private void Awake()
+    {
+        // Garante que só existe um ChatManager
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+    }
 
     void Start()
     {
@@ -61,6 +77,13 @@ public class ChatManager : NetworkBehaviour
     }
     private void HandleClientDisconnected(ulong clientId)
     {
+
+        if (m_PlayerDataMap.ContainsKey(clientId))
+        {
+            m_PlayerDataMap.Remove(clientId);
+            Debug.Log($"[ChatManager] Desregistrou PlayerData para {clientId}.");
+        }
+
         serverLogicalClock++; // Relógio avança
         BroadcastMessageClientRpc($"[SISTEMA]: Jogador {clientId} saiu da sala.", serverLogicalClock, default);
     }
@@ -69,8 +92,13 @@ public class ChatManager : NetworkBehaviour
     private void SubmitChatMessageServerRpc(string message, ServerRpcParams rParams = default)
     {
         ulong senderId = rParams.Receive.SenderClientId;
-        string fMessage = $"[Jogador {senderId}]: {message}";
-
+        string nick = $"Jogador {senderId}"; // Um nick padrão caso algo falhe
+        if (m_PlayerDataMap.TryGetValue(senderId, out PlayerData playerData))
+        {
+            // Se conseguir, lê o valor ATUAL da NetworkVariable
+            nick = playerData.PlayerNick.Value.ToString();
+        }
+        string fMessage = $"[{nick}]: {message}";
         serverLogicalClock++; // Relógio avança
         BroadcastMessageClientRpc(fMessage, serverLogicalClock, default);
     }
@@ -83,54 +111,119 @@ public class ChatManager : NetworkBehaviour
     }
 
     [ServerRpc(RequireOwnership = false)]
-    private void SubmitPrivateMessageServerRpc(ulong targetClientId, string message, ServerRpcParams rParams = default)
+    private void SubmitPrivateMessageServerRpc(string targetNick, string message, ServerRpcParams rParams = default)
     {
         ulong senderId = rParams.Receive.SenderClientId;
-        string fMessage = $"[PRIVADO de {senderId}]: {message}";
+        string senderNick = $"Jogador {senderId}"; // Nick padrão do remetente
 
-        // 1. Cria a lista de clientes (sem mudança aqui)
-        ulong[] targetClientIds = new ulong[] {
-            senderId,       // O remetente
-            targetClientId  // O destinatário
-        };
-
-        // 2. Configura os parâmetros de envio (sem mudança aqui)
-        ClientRpcParams clientRpcParams = new ClientRpcParams
+        // 1. Encontra o nick do REMETENTE (igual antes)
+        if (m_PlayerDataMap.TryGetValue(senderId, out PlayerData senderData))
         {
-            Send = new ClientRpcSendParams
+            senderNick = senderData.PlayerNick.Value.ToString();
+        }
+
+        // 2. Encontra o ID do DESTINATÁRIO (A NOVA LÓGICA)
+        ulong? targetClientId = null; // Usamos '?' (Nullable) para saber se encontramos
+
+        // Itera por todo o dicionário de jogadores no servidor
+        foreach (var entry in m_PlayerDataMap)
+        {
+            // entry.Value é o PlayerData
+            // entry.Key é o ulong (ID)
+
+            // Comparamos o nick do jogador no mapa com o nick que recebemos
+            if (entry.Value.PlayerNick.Value.ToString() == targetNick)
             {
-                TargetClientIds = targetClientIds
+                targetClientId = entry.Key; // Encontramos! Guardamos o ID.
+                break; // Para o loop
             }
-        };
+        }
 
-        // 3. Incrementa o relógio lógico do servidor
-        serverLogicalClock++;
+        // 3. Processa o resultado
+        if (targetClientId.HasValue) // Se encontramos (targetClientId != null)
+        {
+            // SUCESSO: Encontramos o jogador, lógica de envio normal
+            string fMessage = $"[PRIVADO de {senderNick}]: {message}";
 
-        // 4. Chama o ClientRpc com a MENSAGEM, o CARIMBO e os PARÂMETROS de roteamento
-        BroadcastMessageClientRpc(fMessage, serverLogicalClock, clientRpcParams);
+            ulong[] targetClientIds = new ulong[] {
+                senderId, 			 // O remetente
+				targetClientId.Value // O destinatário (usamos .Value por ser Nullable)
+			};
 
-        
+            ClientRpcParams clientRpcParams = new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams { TargetClientIds = targetClientIds }
+            };
+
+            serverLogicalClock++;
+            BroadcastMessageClientRpc(fMessage, serverLogicalClock, clientRpcParams);
+        }
+        else // Se não encontramos (targetClientId é nulo)
+        {
+            // FALHA: Envia uma mensagem de erro APENAS para o remetente
+            string fMessage = $"[SISTEMA]: Jogador '{targetNick}' não encontrado.";
+
+            ulong[] targetClientIds = new ulong[] { senderId }; // Apenas o remetente
+
+            ClientRpcParams clientRpcParams = new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams { TargetClientIds = targetClientIds }
+            };
+
+            serverLogicalClock++;
+            // Usamos o mesmo ClientRpc, mas só para o remetente
+            BroadcastMessageClientRpc(fMessage, serverLogicalClock, clientRpcParams);
+        }
     }
+    /// <summary>
+    /// Chamado pelo PlayerData.OnNetworkSpawn() para se registrar no chat.
+    /// (SÓ RODA NO SERVIDOR)
+    /// </summary>
+    public void RegisterPlayer(ulong netcodeClientId, PlayerData playerData)
+    {
+        if (!IsServer) return; // Segurança
 
+        if (m_PlayerDataMap.ContainsKey(netcodeClientId))
+        {
+            Debug.LogWarning($"[ChatManager] Player {netcodeClientId} já está registrado. Sobrescrevendo.");
+            m_PlayerDataMap[netcodeClientId] = playerData;
+        }
+        else
+        {
+            m_PlayerDataMap.Add(netcodeClientId, playerData);
+            Debug.Log($"[ChatManager] Registrou PlayerData para {netcodeClientId}.");
+        }
+    }
     // --- LÓGICA DE CONTROLE CENTRALIZADA ---
     private void Update()
     {
-        // Encontra o jogador local 
-        if (localPlayerInputs == null && NetworkManager.Singleton.LocalClient != null && NetworkManager.Singleton.LocalClient.PlayerObject != null)
+        // --- LÓGICA DE BUSCA MELHORADA ---
+        // 1. Se não temos o input local, tentamos buscar.
+        // Usamos a checagem de "obj == null" que o Unity entende
+        // para o caso do PlayerObject ter sido destruído.
+        if (localPlayerInputs == null)
         {
-            localPlayerInputs = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<StarterAssetsInputs>();
+            // Só tentamos buscar se o LocalClient e o PlayerObject existirem
+            if (NetworkManager.Singleton.LocalClient != null && NetworkManager.Singleton.LocalClient.PlayerObject != null)
+            {
+                localPlayerInputs = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<StarterAssetsInputs>();
+            }
         }
 
-        if (localPlayerInputs == null) return; // Se não achou o jogador, não faz nada
+        // 2. Se, após a tentativa, ainda for nulo (ou não foi encontrado),
+        // não podemos fazer nada. Saia do Update.
+        if (localPlayerInputs == null)
+        {
+            return;
+        }
 
-        
+        // --- SE CHEGAMOS AQUI, localPlayerInputs É VÁLIDO ---
+
         // Lógica para ABRIR o chat (tecla Enter)
         if (Keyboard.current != null && Keyboard.current.enterKey.wasPressedThisFrame)
         {
-            // Se o chat NÃO está focado E o jogador NÃO está no modo chat...
             if (chatInputField != null && !chatInputField.isFocused && !localPlayerInputs.isChatting)
             {
-                // ...então o "Enter" foi para ABRIR o chat.
                 EnterChatMode();
             }
         }
@@ -138,14 +231,11 @@ public class ChatManager : NetworkBehaviour
         // Lógica para FECHAR o chat (tecla Escape)
         if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
         {
-            // Se o jogador ESTÁ no modo chat...
-            if (localPlayerInputs.isChatting)
+            if (localPlayerInputs.isChatting) // Esta linha agora é segura
             {
-                // ...então "Escape" fecha o chat.
                 ExitChatMode();
             }
         }
-       
     }
 
     // Chamado quando o usuário CLICA no InputField
@@ -173,31 +263,27 @@ public class ChatManager : NetworkBehaviour
             return;
         }
 
-        
+
         if (message.StartsWith("/msg "))
         {
-            // Dividimos a mensagem: "/msg" "1" "Olá" "tudo" "bem"
-            string[] parts = message.Split(' ');
+            // Dividimos a mensagem: "/msg" "cugames" "Olá" "tudo" "bem"
+            string[] parts = message.Split(' ');
 
-            // Verificação de erro: /msg <id> <mensagem>
-            if (parts.Length < 3)
+            // Verificação de erro: /msg <nick> <mensagem>
+            if (parts.Length < 3)
             {
-                // MUDANÇA: Usando a nova função local
-                AddLocalSystemMessage("[SISTEMA]: Formato incorreto. Use: /msg <ID_do_Jogador> <mensagem>");
-            }
-            // Tenta converter a segunda parte (parts[1]) em um ID
-            else if (ulong.TryParse(parts[1], out ulong targetClientId))
-            {
-                // Remonta a mensagem (parts[2] em diante)
-                string privateMessage = string.Join(" ", parts, 2, parts.Length - 2);
-
-                // Chama o RPC Privado (sem mudança aqui)
-                SubmitPrivateMessageServerRpc(targetClientId, privateMessage);
+                AddLocalSystemMessage("[SISTEMA]: Formato incorreto. Use: /msg <Nick_do_Jogador> <mensagem>");
             }
             else
             {
-                // MUDANÇA: Usando a nova função local
-                AddLocalSystemMessage($"[SISTEMA]: ID '{parts[1]}' inválido. Deve ser um número.");
+                // 1. O NICK é a segunda parte.
+                string targetNick = parts[1];
+
+                // 2. Remonta a mensagem (parts[2] em diante)
+                string privateMessage = string.Join(" ", parts, 2, parts.Length - 2);
+
+                // 3. Chama o RPC Privado com o NICK (string), não o ID (ulong)
+                SubmitPrivateMessageServerRpc(targetNick, privateMessage);
             }
         }
         else
@@ -205,7 +291,7 @@ public class ChatManager : NetworkBehaviour
             // Não é um comando, chama o RPC de broadcast normal (sem mudança aqui)
             SubmitChatMessageServerRpc(message);
         }
-        
+
 
         chatInputField.text = "";
         ExitChatMode();
@@ -278,12 +364,12 @@ public class ChatManager : NetworkBehaviour
 
         if (chatInputField != null)
         {
-            
+
             // Força o InputField a "desselecionar"
             chatInputField.DeactivateInputField();
             // Para garantir, diz ao EventSystem para não focar em nada
             UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
-            
+
         }
 
         ResetInactivityTimer(); // Inicia o fade-out
@@ -326,4 +412,6 @@ public class ChatManager : NetworkBehaviour
         if (chatCanvasGroup != null)
             chatCanvasGroup.alpha = targetAlpha;
     }
+
+   
 }

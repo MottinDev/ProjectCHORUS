@@ -229,6 +229,8 @@ public class LobbyManager : MonoBehaviour
                     NickResponse data = JsonUtility.FromJson<NickResponse>(jsonResponse);
                     playerName = data.nick; // Salva o nick globalmente
 
+                    PlayerNickBridge.NickToCarry = playerName;
+
                     Debug.Log($"[Profile] Nick '{playerName}' carregado da API.");
 
                     // Sincroniza o nick com o Unity Auth (boa prática)
@@ -272,7 +274,7 @@ public class LobbyManager : MonoBehaviour
             Debug.LogWarning("O nome não pode estar vazio.");
             return;
         }
-
+        PlayerNickBridge.NickToCarry = playerName;
         // --- 1. Salvar na API Customizada (POST) ---
         string authId = AuthenticationService.Instance.PlayerId;
         string url = $"{m_ApiBaseUrl}/player/{authId}/nick";

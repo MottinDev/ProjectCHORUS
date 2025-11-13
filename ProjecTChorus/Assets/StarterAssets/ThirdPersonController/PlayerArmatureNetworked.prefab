@@ -1113,6 +1113,7 @@ GameObject:
   - component: {fileID: 5888010677432878605}
   - component: {fileID: 5486903378154281626}
   - component: {fileID: 2568056233805720784}
+  - component: {fileID: 8220581782932854627}
   m_Layer: 8
   m_Name: PlayerArmatureNetworked
   m_TagString: Player
@@ -1455,6 +1456,21 @@ MonoBehaviour:
   m_ThirdPersonController: {fileID: 5722666488176919634}
   m_CharacterController: {fileID: 3360231785046211936}
   m_CameraTarget: {fileID: 8763962588354154714}
+--- !u!114 &8220581782932854627
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4103505962400149458}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a6b2792b6486a74ebf8c87db5a8e06e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerData
+  ShowTopMostFoldoutHeaderGroup: 1
+  PlayerNick:
+    m_InternalValue: Jogador
 --- !u!1 &4199538590522679892
 GameObject:
   m_ObjectHideFlags: 0
