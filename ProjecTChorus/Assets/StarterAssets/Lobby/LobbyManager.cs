@@ -572,10 +572,15 @@ public class LobbyManager : MonoBehaviour
             CreateLobbyOptions options = new CreateLobbyOptions
             {
                 IsPrivate = isPrivate,
-                Player = isDedicatedServerToggle.isOn ? null : GetPlayer()
+                // --- 1. MUDANÇA RÁPIDA ---
+                // Removemos a checagem do "isDedicatedServerToggle".
+                // Se estamos criando pela UI, SEMPRE somos um player (Host).
+                Player = GetPlayer()
+                // ANTES: Player = isDedicatedServerToggle.isOn ? null : GetPlayer()
             };
             joinedLobby = await LobbyService.Instance.CreateLobbyAsync(lobbyName, maxPlayers, options);
 
+            // ... (código do Relay e UpdateLobbyAsync continua igual) ...
             Allocation allocation = await RelayService.Instance.CreateAllocationAsync(maxPlayers - 1);
             string joinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
 
@@ -593,6 +598,13 @@ public class LobbyManager : MonoBehaviour
 
             UnityTransport utp = NetworkManager.Singleton.GetComponent<UnityTransport>();
             utp.SetRelayServerData(AllocationUtils.ToRelayServerData(allocation, connectionType));
+
+            // --- 2. MUDANÇA RÁPIDA ---
+            // Removemos o "if" e forçamos StartHost().
+            // Se estamos na UI, sempre seremos o Host.
+            NetworkManager.Singleton.StartHost();
+            /* 
+            // ANTES:
             if (isDedicatedServerToggle.isOn)
             {
                 NetworkManager.Singleton.StartServer();
@@ -601,6 +613,7 @@ public class LobbyManager : MonoBehaviour
             {
                 NetworkManager.Singleton.StartHost();
             }
+            */
 
             panelCreateLobby.SetActive(false);
             panelJoinedLobby.SetActive(true);
@@ -620,6 +633,13 @@ public class LobbyManager : MonoBehaviour
         catch (RelayServiceException e)
         {
             Debug.LogError($"Failed to create relay: {e}");
+        }
+        // --- 3. ADICIONE ISSO PARA PEGAR O NULLREF ---
+        catch (NullReferenceException e)
+        {
+            Debug.LogError("!!!!!!!!!! ERRO DE REFERÊNCIA NULA !!!!!!!!!!");
+            Debug.LogError("VERIFIQUE SE TODOS OS CAMPOS (INPUTS, TOGGLES, PAINÉIS) ESTÃO ARRASTADOS NO INSPECTOR DO LOBBYMANAGER!");
+            Debug.LogError(e); // Mostra o erro real
         }
     }
 
