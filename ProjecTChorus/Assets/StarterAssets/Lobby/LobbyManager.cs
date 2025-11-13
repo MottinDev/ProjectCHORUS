@@ -333,6 +333,18 @@ public class LobbyManager : MonoBehaviour
         panelLobbyList.SetActive(true);
     }
 
+    public void hideProfilePanel()
+    {
+        panelProfile.SetActive(false);
+    }
+
+    public void hideLobbyList()
+    {
+        panelCreateLobby.SetActive(false);
+        panelProfile.SetActive(true);
+
+    }
+
     //public async void OnConfirmProfile()
     //{
     //    playerName = playerNameInput.text;
