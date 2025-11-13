@@ -17,7 +17,9 @@ using UnityEngine.UI;
 using UnityEngine.Networking;
 using System.Text;
 using System;
-
+#if UNITY_SERVER
+using Unity.Services.Authentication.Server;
+#endif
 
 public class LobbyManager : MonoBehaviour
 {
@@ -30,6 +32,7 @@ public class LobbyManager : MonoBehaviour
 
     [Header("Profile UI")]
     [SerializeField] private TMP_InputField playerNameInput;
+    [SerializeField] private TextMeshProUGUI profileErrorText;
 
     [Header("Create Lobby UI")]
     [SerializeField] private TMP_InputField lobbyNameInput;
@@ -53,7 +56,7 @@ public class LobbyManager : MonoBehaviour
 #if UNITY_SERVER
     private string m_ApiBaseUrl = "http://localhost:5000";
 #else
-    private string m_ApiBaseUrl = "http://44.203.6.233";
+    private string m_ApiBaseUrl = "http://3.222.116.91";
 #endif
 
     private float timeSinceLastRefresh = 0f;
@@ -64,6 +67,12 @@ public class LobbyManager : MonoBehaviour
     private class NickResponse
     {
         public string nick;
+    }
+
+    [System.Serializable]
+    private class NickCheckResponse
+    {
+        public bool exists;
     }
 
     // Variáveis de estado
@@ -86,6 +95,11 @@ public class LobbyManager : MonoBehaviour
         panelCreateLobby.SetActive(false);
         panelJoinedLobby.SetActive(false);
         panelProfile.SetActive(false);
+
+        if (profileErrorText != null)
+        {
+            profileErrorText.gameObject.SetActive(false);
+        }
 
         try
         {
@@ -114,7 +128,7 @@ public class LobbyManager : MonoBehaviour
             // 3. Autentica usando o AuthenticationService diretamente
             Debug.Log($"Serviços inicializados. Autenticando com Key ID: {keyId}...");
 
-            await AuthenticationService.Instance.SignInAnonymouslyAsync();
+            await ServerAuthenticationService.Instance.SignInWithServiceAccountAsync(keyId, secretKey);
 
             Debug.Log($"Servidor autenticado com sucesso via Key ID: {keyId}");
 
@@ -176,7 +190,7 @@ public class LobbyManager : MonoBehaviour
             joinedLobby = await LobbyService.Instance.CreateLobbyAsync(lobbyName, maxPlayers, options);
 
             // 2. Aloca o Relay (idêntico)
-            Allocation allocation = await RelayService.Instance.CreateAllocationAsync(maxPlayers - 1);
+            Allocation allocation = await RelayService.Instance.CreateAllocationAsync(maxPlayers);
             string joinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
 
             Debug.Log($"[Servidor] Lobby Criado! Join Code: {joinCode}");
@@ -266,16 +280,112 @@ public class LobbyManager : MonoBehaviour
         }
     }
 
+    //public async void OnConfirmProfile()
+    //{
+    //    playerName = playerNameInput.text;
+    //    if (string.IsNullOrWhiteSpace(playerName))
+    //    {
+    //        Debug.LogWarning("O nome não pode estar vazio.");
+    //        return;
+    //    }
+
+    //    try
+    //    {
+    //        bool nickAlreadyExists = await CheckNickExistsAsync(playerName);
+    //        if (nickAlreadyExists)
+    //        {
+    //            Debug.LogWarning($"[Profile] O nick '{playerName}' já está em uso. Tente outro.");
+    //            // TODO: Mostrar esta mensagem de erro para o usuário na UI
+    //            return; // Para a execução
+    //        }
+    //    }
+    //    catch (System.Exception e)
+    //    {
+    //        Debug.LogError($"[Profile] Falha ao VERIFICAR o nick na API: {e.Message}");
+    //        // Não continuar se o sistema de verificação falhar
+    //        return;
+    //    }
+
+    //    PlayerNickBridge.NickToCarry = playerName;
+    //    // --- 1. Salvar na API Customizada (POST) ---
+    //    string authId = AuthenticationService.Instance.PlayerId;
+    //    string url = $"{m_ApiBaseUrl}/player/{authId}/nick";
+
+    //    string jsonPayload = $"{{\"nick\":\"{playerName}\"}}";
+    //    byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
+
+    //    using (UnityWebRequest request = new UnityWebRequest(url, "POST"))
+    //    {
+    //        request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+    //        request.downloadHandler = new DownloadHandlerBuffer();
+    //        request.SetRequestHeader("Content-Type", "application/json");
+    //        request.SetRequestHeader("Authorization", $"Bearer {m_ApiSecretKey}");
+
+    //        try
+    //        {
+    //            await request.SendWebRequest();
+    //            if (request.result != UnityWebRequest.Result.Success)
+    //            {
+    //                throw new System.Exception(request.error);
+    //            }
+    //            Debug.Log($"[Profile] Nick '{playerName}' salvo na API customizada.");
+    //        }
+    //        catch (System.Exception e)
+    //        {
+    //            Debug.LogError($"[Profile] Falha ao SALVAR nick na API: {e.Message}");
+    //            // Não continuar se não conseguir salvar
+    //            return;
+    //        }
+    //    }
+
+    //    // --- 2. Salvar no Unity Auth (código original) ---
+    //    await UpdatePlayerNameAsync(playerName);
+
+    //    // --- 3. Mudar de painel (código original) ---
+    //    panelProfile.SetActive(false);
+    //    panelLobbyList.SetActive(true);
+    //    RefreshLobbyList();
+    //}
+
     public async void OnConfirmProfile()
     {
+        // --- ATUALIZADO: Limpa erros antigos ---
+        if (profileErrorText != null)
+        {
+            profileErrorText.text = "";
+            profileErrorText.gameObject.SetActive(false);
+        }
+
         playerName = playerNameInput.text;
         if (string.IsNullOrWhiteSpace(playerName))
         {
             Debug.LogWarning("O nome não pode estar vazio.");
+            ShowProfileError("O nome não pode estar vazio."); // <-- MOSTRA O ERRO
             return;
         }
+
+        // --- 1. VERIFICAR SE O NICK JÁ EXISTE ---
+        try
+        {
+            bool nickAlreadyExists = await CheckNickExistsAsync(playerName);
+            if (nickAlreadyExists)
+            {
+                Debug.LogWarning($"[Profile] O nick '{playerName}' já está em uso. Tente outro.");
+                ShowProfileError($"O nick '{playerName}' já está em uso."); // <-- MOSTRA O ERRO
+                return; // Para a execução
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[Profile] Falha ao VERIFICAR o nick na API: {e.Message}");
+            ShowProfileError("Erro ao conectar com o servidor. Tente mais tarde."); // <-- MOSTRA O ERRO
+            return;
+        }
+
+        // Se chegou aqui, o nick está livre
         PlayerNickBridge.NickToCarry = playerName;
-        // --- 1. Salvar na API Customizada (POST) ---
+
+        // --- 2. Salvar na API Customizada (POST) ---
         string authId = AuthenticationService.Instance.PlayerId;
         string url = $"{m_ApiBaseUrl}/player/{authId}/nick";
 
@@ -301,18 +411,48 @@ public class LobbyManager : MonoBehaviour
             catch (System.Exception e)
             {
                 Debug.LogError($"[Profile] Falha ao SALVAR nick na API: {e.Message}");
-                // Não continuar se não conseguir salvar
+                ShowProfileError("Erro ao salvar o nick. Tente mais tarde."); // <-- MOSTRA O ERRO
                 return;
             }
         }
 
-        // --- 2. Salvar no Unity Auth (código original) ---
+        // --- 3. Salvar no Unity Auth (código original) ---
         await UpdatePlayerNameAsync(playerName);
 
-        // --- 3. Mudar de painel (código original) ---
+        // --- 4. Mudar de painel (código original) ---
         panelProfile.SetActive(false);
         panelLobbyList.SetActive(true);
         RefreshLobbyList();
+    }
+
+    /// <summary>
+    /// Chama a API customizada para verificar se um nick já existe.
+    /// </summary>
+    /// <returns>True se o nick existir, False se estiver livre.</returns>
+    private async Task<bool> CheckNickExistsAsync(string nickName)
+    {
+        // Codifica o nick para ser seguro em uma URL (ex: "Nick Teste" vira "Nick%20Teste")
+        string encodedNick = UnityWebRequest.EscapeURL(nickName);
+        string url = $"{m_ApiBaseUrl}/nicks/check?name={encodedNick}";
+
+        using (UnityWebRequest request = UnityWebRequest.Get(url))
+        {
+            request.SetRequestHeader("Authorization", $"Bearer {m_ApiSecretKey}");
+
+            await request.SendWebRequest();
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                string jsonResponse = request.downloadHandler.text;
+                NickCheckResponse data = JsonUtility.FromJson<NickCheckResponse>(jsonResponse);
+                return data.exists; // Retorna true (se existe) ou false (se não existe)
+            }
+            else
+            {
+                // Se a API der erro, lança uma exceção que será pega pelo OnConfirmProfile
+                throw new System.Exception($"Erro da API ao checar nick: {request.error}");
+            }
+        }
     }
 
     public void desbloquearCursor()
@@ -343,6 +483,14 @@ public class LobbyManager : MonoBehaviour
         panelCreateLobby.SetActive(false);
         panelProfile.SetActive(true);
 
+    }
+
+    private void ShowProfileError(string message)
+    {
+        if (profileErrorText == null) return;
+
+        profileErrorText.text = message;
+        profileErrorText.gameObject.SetActive(true);
     }
 
     //public async void OnConfirmProfile()
